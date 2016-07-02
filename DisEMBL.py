@@ -62,27 +62,6 @@ def JensenNet(sequence, NN_bin='/Users/saladi/disembl/disembl'):
     return df.COILS.tolist(), df.HOTLOOPS.tolist(), df.REM465.tolist()
 
 
-def SavitzkyGolay(window, derivative, datalist, SG_bin='/Users/saladi/disembl/sav_gol'):
-    if len(datalist) < 2*window:
-        window = len(datalist)/2
-    elif window == 0:
-        window = 1
-
-    with subprocess.Popen([SG_bin,
-                           '-V0', '-D', str(derivative),
-                           '-n', str(window) + ',' + str(window)],
-                         stdin = subprocess.PIPE,
-                         stdout = subprocess.PIPE,
-                         universal_newlines=True) as p:
-        stdout_data = p.communicate(
-            input="\n".join([str(x) for x in datalist]) + '\n')[0]
-
-    SG_results = np.fromstring(stdout_data, sep='\n')
-    SG_results[SG_results < 0] = 0
-
-    return SG_results.tolist()
-
-
 def getSlices(NNdata, fold, join_frame, peak_frame, expect_val):
     slices = []
     inSlice = 0
@@ -115,6 +94,7 @@ def getSlices(NNdata, fold, join_frame, peak_frame, expect_val):
             i += 1
     return slices
 
+
 def get_all_slices(coils, rem465, hotloops,
                    fold_coils=default_params['fold_coils'],
                    expect_coils=default_params['expect_coils'],
@@ -132,6 +112,7 @@ def get_all_slices(coils, rem465, hotloops,
             'hotloops': getSlices(hotloops, fold_hotloops, join_frame,
                                   peak_frame, expect_hotloops)
             }
+
 
 def reportSlicesTXT(slices, sequence):
     if slices == []:
@@ -152,66 +133,6 @@ def reportSlicesTXT(slices, sequence):
                 s = s + sequence[(slices[i][1]+1):(len(sequence))].lower()
     print('')
     print(s)
-
-    return
-
-
-def runDisEMBLpipeline(quiet=False):
-    try:
-        smooth_frame = int(sys.argv[1])
-        peak_frame = int(sys.argv[2])
-        join_frame = int(sys.argv[3])
-        fold_coils = float(sys.argv[4])
-        fold_hotloops = float(sys.argv[5])
-        fold_rem465 = float(sys.argv[6])
-        file = str(sys.argv[7])
-        try:
-            mode = sys.argv[8]
-        except:
-            mode = 'default'
-    except:
-        print('\nDisEMBL.py smooth_frame peak_frame join_frame fold_coils fold_hotloops fold_rem465 sequence_file [mode]\n')
-        print('A default run would be: ./DisEMBL.py 8 8 4 1.2 1.4 1.2  fasta_file')
-        print('Mode: "default"(nothing) or "scores" which will give scores per residue in TAB seperated format')
-        raise SystemExit
-    db = open(file,'r')
-    if not quiet:
-        print(' ____  _     _____ __  __ ____  _       _  _  _')
-        print('|  _ \(_)___| ____|  \/  | __ )| |     / || || |')
-        print('| | | | / __|  _| | |\/| |  _ \| |     | || || |_')
-        print('| |_| | \__ \ |___| |  | | |_) | |___  | ||__   _|')
-        print('|____/|_|___/_____|_|  |_|____/|_____| |_(_) |_|')
-        print('# Copyright (C) 2004 - Rune Linding & Lars Juhl Jensen ')
-        print('# EMBL Biocomputing Unit - Heidelberg - Germany        ')
-        print('#')
-    for cur_record in Bio.SeqIO.parse(db, "fasta"):
-        sequence = str(cur_record.seq).upper()
-        # Run NN
-        COILS_raw, HOTLOOPS_raw, REM465_raw = JensenNet(sequence)
-        # Run Savitzky-Golay
-        REM465_smooth = SavitzkyGolay(smooth_frame, 0, REM465_raw)
-        COILS_smooth = SavitzkyGolay(smooth_frame, 0, COILS_raw)
-        HOTLOOPS_smooth = SavitzkyGolay(smooth_frame, 0, HOTLOOPS_raw)
-
-        if mode == 'default':
-            sys.stdout.write('> '+cur_record.id+'_COILS ')
-            reportSlicesTXT(getSlices(COILS_smooth, fold_coils, join_frame, peak_frame, 0.43), sequence)
-            sys.stdout.write('> '+cur_record.id+'_REM465 ')
-            reportSlicesTXT(getSlices(REM465_smooth, fold_rem465, join_frame, peak_frame, 0.50), sequence )
-            sys.stdout.write('> '+cur_record.id+'_HOTLOOPS ')
-            reportSlicesTXT(getSlices(HOTLOOPS_smooth, fold_hotloops, join_frame, peak_frame, 0.086), sequence)
-            sys.stdout.write('\n')
-        elif mode == 'scores':
-            sys.stdout.write('# RESIDUE COILS REM465 HOTLOOPS\n')
-            for i in range(len(REM465_smooth)):
-                sys.stdout.write(sequence[i] + '    ' +
-                                 "%.5f" % COILS_smooth[i] + '    ' +
-                                 "%.5f" % REM465_smooth[i] + '    ' +
-                                 "%.5f" % HOTLOOPS_smooth[i] + '\n')
-        else:
-            sys.stderr.write('Wrong mode given: ' + mode + '\n')
-            raise SystemExit
-    db.close()
 
     return
 
@@ -346,10 +267,10 @@ def main():
         default=default_params['expect_rem465'],
         help='expect_rem465')
 
-    parser.add_argument('--new_filter',
+    parser.add_argument('--old_filter',
         action='store_true',
-        help="Don't simply replace the first [smooth_frame] and last "
-             "[smooth_frame] values. "
+        help="Simply replace the first [smooth_frame] and last "
+             "[smooth_frame] values, instead of using "
              "Use 'interp' from scipy.signal.savgol_filter")
 
     parser.add_argument('--mode',
@@ -363,21 +284,7 @@ def main():
         action='store_true',
         help='Supress printing the DisEMBL banner')
 
-    parser.add_argument('--old',
-        action='store_true',
-        help='Completely run the old code')
-
     args = parser.parse_args()
-
-    if args.old:
-        sys.argv = [sys.argv[0],
-                    args.smooth_frame, args.peak_frame,
-                    args.join_frame, args.fold_coils,
-                    args.fold_hotloops, args.fold_rem465,
-                    args.inputfile, args.mode]
-
-        runDisEMBLpipeline(quiet=args.quiet)
-        return
 
 
     if not args.quiet:
@@ -401,7 +308,9 @@ def main():
     for record in Bio.SeqIO.parse(args.inputfile, args.inputformat):
         sequence = str(record.seq).upper()
 
-        preds = calc_disembl(sequence, args.smooth_frame)
+        preds = calc_disembl(sequence,
+                             smooth_frame=args.smooth_frame,
+                             old_filter=args.old_filter)
 
         if args.mode == 'default':
             slices = get_all_slices(coils = preds.coils.tolist(),
