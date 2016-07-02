@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
-This version of DisEMBL represents a complete rewriting of the code. The regions
-identified as disordered do not change.
+This version of DisEMBL represents a complete rewriting of the code. The
+regions identified as disordered do not change.
 
 Much of the calculation is done with NumPy/Scipy instead of previously written,
 custom C code since it ends up being faster and significantly simplifies
@@ -49,11 +49,12 @@ default_params = {
     'expect_rem465': 0.50
 }
 
+
 def JensenNet(sequence, NN_bin='/Users/saladi/disembl/disembl'):
     with subprocess.Popen([NN_bin],
-                     stdin = subprocess.PIPE,
-                     stdout = subprocess.PIPE,
-                     universal_newlines=True) as p:
+                          stdin=subprocess.PIPE,
+                          stdout=subprocess.PIPE,
+                          universal_newlines=True) as p:
         stdout_data = p.communicate(input=sequence + '\n')[0]
 
     df = pd.read_csv(io.StringIO(stdout_data), header=None, comment='%',
@@ -86,7 +87,7 @@ def getSlices(NNdata, fold, join_frame, peak_frame, expect_val):
     i = 0
     while i < len(slices):
         if i+1 < len(slices) and slices[i+1][0]-slices[i][1] <= join_frame:
-            slices[i] = [ slices[i][0], slices[i+1][1] ]
+            slices[i] = [slices[i][0], slices[i+1][1]]
             del slices[i+1]
         elif slices[i][1]-slices[i][0]+1 < peak_frame:
             del slices[i]
@@ -125,7 +126,7 @@ def reportSlicesTXT(slices, sequence):
         for i in range(len(slices)):
             if i > 0:
                 sys.stdout.write(', ')
-            sys.stdout.write( str(slices[i][0]+1) + '-' + str(slices[i][1]+1) )
+            sys.stdout.write(str(slices[i][0]+1) + '-' + str(slices[i][1]+1))
             s = s + sequence[slices[i][0]:(slices[i][1]+1)].upper()
             if i < len(slices)-1:
                 s = s + sequence[(slices[i][1]+1):(slices[i+1][0])].lower()
@@ -213,72 +214,73 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument('inputfile',
-        type=str,
-        default=sys.stdin,
-        help='File of protein coding sequences to predict on.')
+                        type=str,
+                        default=sys.stdin,
+                        help='File of protein coding sequences to predict on.')
 
     parser.add_argument('--inputformat',
-        type=str,
-        default='fasta',
-        help='File format of [protein_seq]. Any Bio.SeqIO-readable format is supported')
+                        type=str,
+                        default='fasta',
+                        help='File format of [protein_seq].'
+                             'Any Bio.SeqIO-readable supported')
 
     parser.add_argument('--smooth_frame',
-        type=int,
-        default=default_params['smooth_frame'],
-        help='smooth_frame (window length = smooth_frame * 2 + 1)')
+                        type=int,
+                        default=default_params['smooth_frame'],
+                        help='smooth_frame (window = smooth_frame * 2 + 1)')
 
     parser.add_argument('--peak_frame',
-        type=int,
-        default=default_params['peak_frame'],
-        help='peak_frame')
+                        type=int,
+                        default=default_params['peak_frame'],
+                        help='peak_frame')
 
     parser.add_argument('--join_frame',
-        type=int,
-        default=default_params['join_frame'],
-        help='join_frame')
+                        type=int,
+                        default=default_params['join_frame'],
+                        help='join_frame')
 
     parser.add_argument('--fold_coils',
-        type=float,
-        default=default_params['fold_coils'],
-        help='fold_coils')
+                        type=float,
+                        default=default_params['fold_coils'],
+                        help='fold_coils')
 
     parser.add_argument('--fold_hotloops',
-        type=float,
-        default=default_params['fold_hotloops'],
-        help='fold_hotloops')
+                        type=float,
+                        default=default_params['fold_hotloops'],
+                        help='fold_hotloops')
 
     parser.add_argument('--fold_rem465',
-        type=float,
-        default=default_params['fold_rem465'],
-        help='fold_rem465')
+                        type=float,
+                        default=default_params['fold_rem465'],
+                        help='fold_rem465')
 
     parser.add_argument('--expect_coils',
-        type=float,
-        default=default_params['expect_coils'],
-        help='expect_coils')
+                        type=float,
+                        default=default_params['expect_coils'],
+                        help='expect_coils')
 
     parser.add_argument('--expect_hotloops',
-        type=float,
-        default=default_params['expect_hotloops'],
-        help='expect_hotloops')
+                        type=float,
+                        default=default_params['expect_hotloops'],
+                        help='expect_hotloops')
 
     parser.add_argument('--expect_rem465',
-        type=float,
-        default=default_params['expect_rem465'],
-        help='expect_rem465')
+                        type=float,
+                        default=default_params['expect_rem465'],
+                        help='expect_rem465')
 
     parser.add_argument('--old_filter',
-        action='store_true',
-        help="Simply replace the first [smooth_frame] and last "
-             "[smooth_frame] values, instead of using "
-             "Use 'interp' from scipy.signal.savgol_filter")
+                        action='store_true',
+                        help="Simply replace the first [smooth_frame] and last"
+                             " [smooth_frame] values, instead of using "
+                             "Use 'interp' from scipy.signal.savgol_filter")
 
     parser.add_argument('--mode',
-        type=str,
-        choices=['default', 'scores'],
-        default='default',
-        help='mode: default or scores which will give scores per residue'
-             'in TAB seperated format')
+                        type=str,
+                        choices=['default', 'scores'],
+                        default='default',
+                        help='mode: default or scores which will give scores
+                             'per residue in TAB seperated format')
 
     parser.add_argument('--quiet',
         action='store_true',
@@ -286,24 +288,21 @@ def main():
 
     args = parser.parse_args()
 
-
     if not args.quiet:
-        banner = \
-        (' ____  _     _____ __  __ ____  _     ',
-         '|  _ \(_)___| ____|  \/  | __ )| |    ',
-         '| | | | / __|  _| | |\/| |  _ \| |    ',
-         '| |_| | \__ \ |___| |  | | |_) | |___ ',
-         '|____/|_|___/_____|_|  |_|____/|_____|',
-         '# ',
-         '# Original:',
-         '# Copyright (C) 2004 - Rune Linding & Lars Juhl Jensen',
-         '# EMBL Biocomputing Unit - Heidelberg - Germany',
-         '# ',
-         '# Rewrite (v2.0+):',
-         '# Copyright (C) 2016 - Shyam Saladi',
-         '# California Institute of Technology - Pasadena - CA - USA',
-         '# ')
-        print("\n".join(banner)) #, sep="\n", file=sys.stderr)
+        print(' ____  _     _____ __  __ ____  _     ',
+              '|  _ \(_)___| ____|  \/  | __ )| |    ',
+              '| | | | / __|  _| | |\/| |  _ \| |    ',
+              '| |_| | \__ \ |___| |  | | |_) | |___ ',
+              '|____/|_|___/_____|_|  |_|____/|_____|',
+              '# ',
+              '# Original:',
+              '# Copyright (C) 2004 - Rune Linding & Lars Juhl Jensen',
+              '# EMBL Biocomputing Unit - Heidelberg - Germany',
+              '# ',
+              '# Rewrite (v2.0+):',
+              '# Copyright (C) 2016 - Shyam Saladi',
+              '# California Institute of Technology - Pasadena - CA - USA',
+              '# ', sep="\n", file=sys.stderr)
 
     for record in Bio.SeqIO.parse(args.inputfile, args.inputformat):
         sequence = str(record.seq).upper()
@@ -313,9 +312,9 @@ def main():
                              old_filter=args.old_filter)
 
         if args.mode == 'default':
-            slices = get_all_slices(coils = preds.coils.tolist(),
-                                    rem465 = preds.rem465.tolist(),
-                                    hotloops = preds.hotloops.tolist(),
+            slices = get_all_slices(coils=preds.coils.tolist(),
+                                    rem465=preds.rem465.tolist(),
+                                    hotloops=preds.hotloops.tolist(),
                                     fold_coils=args.fold_coils,
                                     expect_coils=args.expect_coils,
                                     fold_rem465=args.fold_rem465,
