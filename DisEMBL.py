@@ -23,65 +23,64 @@ The DisEMBL is licensed under the GNU General Public License
 (http://www.opensource.org/licenses/gpl-license.php)
 """
 
-import fpformat
 import sys
 import tempfile
-from os import system, popen3
-from string import *
+from os import system
 
 import os
+import subprocess
 import argparse
+import io
 
+import numpy as np
 import pandas as pd
 import scipy.signal
 import Bio.SeqIO
 
+default_params = {
+    'smooth_frame': 8,
+    'peak_frame': 8,
+    'join_frame': 4,
+    'fold_coils': 1.2,
+    'fold_hotloops': 1.4,
+    'fold_rem465': 1.2,
+    'expect_coils': 0.43,
+    'expect_hotloops': 0.086,
+    'expect_rem465': 0.50
+}
 
-def JensenNet(sequence, NN_bin='~/DisEMBL-1.4/disembl'):
-    outFile = tempfile.mktemp()
-    inFile = tempfile.mktemp()
-    open(inFile,'w').write(sequence+'\n')
-    system(NN_bin + '< ' + inFile +' > ' + outFile)
-    REM465 = []
-    COILS = []
-    HOTLOOPS = []
-    resultsFile = open(outFile,'r')
-    results = resultsFile.readlines()
-    resultsFile.close()
-    for result in results:
-        coil = float(fpformat.fix(split(result)[0],6))
-        COILS.append(coil)
-        hotloop = float(fpformat.fix(split(result)[1],6))
-        HOTLOOPS.append(hotloop)
-        rem465 = float(fpformat.fix(split(result)[2],6))
-        REM465.append(rem465)
-    os.remove(inFile)
-    os.remove(outFile)
-    return COILS, HOTLOOPS, REM465
+def JensenNet(sequence, NN_bin='/Users/saladi/disembl/disembl'):
+    with subprocess.Popen([NN_bin],
+                     stdin = subprocess.PIPE,
+                     stdout = subprocess.PIPE,
+                     universal_newlines=True) as p:
+        stdout_data = p.communicate(input=sequence + '\n')[0]
+
+    df = pd.read_csv(io.StringIO(stdout_data), header=None, comment='%',
+                     names=['COILS', 'HOTLOOPS', 'REM465'], delimiter='\t')
+
+    return df.COILS.tolist(), df.HOTLOOPS.tolist(), df.REM465.tolist()
 
 
-def SavitzkyGolay(window, derivative, datalist, SG_bin='~/DisEMBL-1.4/sav_gol'):
+def SavitzkyGolay(window, derivative, datalist, SG_bin='/Users/saladi/disembl/sav_gol'):
     if len(datalist) < 2*window:
         window = len(datalist)/2
     elif window == 0:
         window = 1
-    stdin, stdout, stderr = popen3(SG_bin + ' -V0 -D' + str(derivative) + ' -n' + str(window)+','+str(window))
-    for data in datalist:
-        stdin.write(`data`+'\n')
-    try:
-        stdin.close()
-    except:
-        print stderr.readlines()
-    results = stdout.readlines()
-    stdout.close()
-    SG_results = []
-    for result in results:
-        f = float(fpformat.fix(result,6))
-        if f < 0:
-            SG_results.append(0)
-        else:
-            SG_results.append(f)
-    return SG_results
+
+    with subprocess.Popen([SG_bin,
+                           '-V0', '-D', str(derivative),
+                           '-n', str(window) + ',' + str(window)],
+                         stdin = subprocess.PIPE,
+                         stdout = subprocess.PIPE,
+                         universal_newlines=True) as p:
+        stdout_data = p.communicate(
+            input="\n".join([str(x) for x in datalist]) + '\n')[0]
+
+    SG_results = np.fromstring(stdout_data, sep='\n')
+    SG_results[SG_results < 0] = 0
+
+    return SG_results.tolist()
 
 
 def getSlices(NNdata, fold, join_frame, peak_frame, expect_val):
@@ -116,31 +115,48 @@ def getSlices(NNdata, fold, join_frame, peak_frame, expect_val):
             i += 1
     return slices
 
+def get_all_slices(coils, rem465, hotloops,
+                   fold_coils=default_params['fold_coils'],
+                   expect_coils=default_params['expect_coils'],
+                   fold_rem465=default_params['fold_rem465'],
+                   expect_rem465=default_params['expect_rem465'],
+                   fold_hotloops=default_params['fold_hotloops'],
+                   expect_hotloops=default_params['expect_hotloops'],
+                   join_frame=default_params['join_frame'],
+                   peak_frame=default_params['peak_frame']):
+        return {
+            'coils': getSlices(coils, fold_coils, join_frame,
+                               peak_frame, expect_coils),
+            'rem465': getSlices(rem465, fold_rem465, join_frame,
+                                peak_frame, expect_rem465),
+            'hotloops': getSlices(hotloops, fold_hotloops, join_frame,
+                                  peak_frame, expect_hotloops)
+            }
 
 def reportSlicesTXT(slices, sequence):
     if slices == []:
-        s = lower(sequence)
+        s = sequence.lower()
     else:
         if slices[0][0] > 0:
-            s = lower(sequence[0:slices[0][0]])
+            s = sequence[0:slices[0][0]].lower()
         else:
             s = ''
         for i in range(len(slices)):
             if i > 0:
                 sys.stdout.write(', ')
             sys.stdout.write( str(slices[i][0]+1) + '-' + str(slices[i][1]+1) )
-            s = s + upper(sequence[slices[i][0]:(slices[i][1]+1)])
+            s = s + sequence[slices[i][0]:(slices[i][1]+1)].upper()
             if i < len(slices)-1:
-                s = s + lower(sequence[(slices[i][1]+1):(slices[i+1][0])])
+                s = s + sequence[(slices[i][1]+1):(slices[i+1][0])].lower()
             elif slices[i][1] < len(sequence)-1:
-                s = s + lower(sequence[(slices[i][1]+1):(len(sequence))])
-    print ''
-    print s
+                s = s + sequence[(slices[i][1]+1):(len(sequence))].lower()
+    print('')
+    print(s)
 
     return
 
 
-def runDisEMBLpipeline():
+def runDisEMBLpipeline(quiet=False):
     try:
         smooth_frame = int(sys.argv[1])
         peak_frame = int(sys.argv[2])
@@ -154,48 +170,53 @@ def runDisEMBLpipeline():
         except:
             mode = 'default'
     except:
-        print '\nDisEMBL.py smooth_frame peak_frame join_frame fold_coils fold_hotloops fold_rem465 sequence_file [mode]\n'
-        print 'A default run would be: ./DisEMBL.py 8 8 4 1.2 1.4 1.2  fasta_file'
-        print 'Mode: "default"(nothing) or "scores" which will give scores per residue in TAB seperated format'
+        print('\nDisEMBL.py smooth_frame peak_frame join_frame fold_coils fold_hotloops fold_rem465 sequence_file [mode]\n')
+        print('A default run would be: ./DisEMBL.py 8 8 4 1.2 1.4 1.2  fasta_file')
+        print('Mode: "default"(nothing) or "scores" which will give scores per residue in TAB seperated format')
         raise SystemExit
     db = open(file,'r')
-    print ' ____  _     _____ __  __ ____  _       _  _  _'
-    print '|  _ \(_)___| ____|  \/  | __ )| |     / || || |'
-    print '| | | | / __|  _| | |\/| |  _ \| |     | || || |_'
-    print '| |_| | \__ \ |___| |  | | |_) | |___  | ||__   _|'
-    print '|____/|_|___/_____|_|  |_|____/|_____| |_(_) |_|'
-    print '# Copyright (C) 2004 - Rune Linding & Lars Juhl Jensen '
-    print '# EMBL Biocomputing Unit - Heidelberg - Germany        '
-    print '#'
+    if not quiet:
+        print(' ____  _     _____ __  __ ____  _       _  _  _')
+        print('|  _ \(_)___| ____|  \/  | __ )| |     / || || |')
+        print('| | | | / __|  _| | |\/| |  _ \| |     | || || |_')
+        print('| |_| | \__ \ |___| |  | | |_) | |___  | ||__   _|')
+        print('|____/|_|___/_____|_|  |_|____/|_____| |_(_) |_|')
+        print('# Copyright (C) 2004 - Rune Linding & Lars Juhl Jensen ')
+        print('# EMBL Biocomputing Unit - Heidelberg - Germany        ')
+        print('#')
     for cur_record in Bio.SeqIO.parse(db, "fasta"):
-	    sequence = upper(str(cur_record.seq))
-            # Run NN
-            COILS_raw, HOTLOOPS_raw, REM465_raw = JensenNet(sequence)
-            # Run Savitzky-Golay
-            REM465_smooth = SavitzkyGolay(smooth_frame,0,REM465_raw)
-            COILS_smooth = SavitzkyGolay(smooth_frame,0,COILS_raw)
-            HOTLOOPS_smooth = SavitzkyGolay(smooth_frame,0,HOTLOOPS_raw)
-            if mode == 'default':
-                sys.stdout.write('> '+cur_record.id+'_COILS ')
-                reportSlicesTXT( getSlices(COILS_smooth, fold_coils, join_frame, peak_frame, 0.43), sequence )
-                sys.stdout.write('> '+cur_record.id+'_REM465 ')
-                reportSlicesTXT( getSlices(REM465_smooth, fold_rem465, join_frame, peak_frame, 0.50), sequence )
-                sys.stdout.write('> '+cur_record.id+'_HOTLOOPS ')
-                reportSlicesTXT( getSlices(HOTLOOPS_smooth, fold_hotloops, join_frame, peak_frame, 0.086), sequence )
-                sys.stdout.write('\n')
-            elif mode == 'scores':
-                sys.stdout.write('# RESIDUE COILS REM465 HOTLOOPS\n')
-                for i in range(len(REM465_smooth)):
-                    sys.stdout.write(sequence[i]+'\t'+fpformat.fix(COILS_smooth[i],5)+'\t'+fpformat.fix(REM465_smooth[i],5)+'\t'+fpformat.fix(HOTLOOPS_smooth[i],5)+'\n')
-            else:
-                sys.stderr.write('Wrong mode given: '+mode+'\n')
-                raise SystemExit
+        sequence = str(cur_record.seq).upper()
+        # Run NN
+        COILS_raw, HOTLOOPS_raw, REM465_raw = JensenNet(sequence)
+        # Run Savitzky-Golay
+        REM465_smooth = SavitzkyGolay(smooth_frame, 0, REM465_raw)
+        COILS_smooth = SavitzkyGolay(smooth_frame, 0, COILS_raw)
+        HOTLOOPS_smooth = SavitzkyGolay(smooth_frame, 0, HOTLOOPS_raw)
+
+        if mode == 'default':
+            sys.stdout.write('> '+cur_record.id+'_COILS ')
+            reportSlicesTXT(getSlices(COILS_smooth, fold_coils, join_frame, peak_frame, 0.43), sequence)
+            sys.stdout.write('> '+cur_record.id+'_REM465 ')
+            reportSlicesTXT(getSlices(REM465_smooth, fold_rem465, join_frame, peak_frame, 0.50), sequence )
+            sys.stdout.write('> '+cur_record.id+'_HOTLOOPS ')
+            reportSlicesTXT(getSlices(HOTLOOPS_smooth, fold_hotloops, join_frame, peak_frame, 0.086), sequence)
+            sys.stdout.write('\n')
+        elif mode == 'scores':
+            sys.stdout.write('# RESIDUE COILS REM465 HOTLOOPS\n')
+            for i in range(len(REM465_smooth)):
+                sys.stdout.write(sequence[i] + '    ' +
+                                 "%.5f" % COILS_smooth[i] + '    ' +
+                                 "%.5f" % REM465_smooth[i] + '    ' +
+                                 "%.5f" % HOTLOOPS_smooth[i] + '\n')
+        else:
+            sys.stderr.write('Wrong mode given: ' + mode + '\n')
+            raise SystemExit
     db.close()
 
     return
 
 
-def calc_disembl(protseq, smooth_frame,
+def calc_disembl(protseq, smooth_frame=default_params['smooth_frame'],
                  coils=True, hotloops=True, rem465=True, old_filter=False):
     """Calculate the output of the DisEMBL neural network for a sequence
 
@@ -232,7 +253,7 @@ def calc_disembl(protseq, smooth_frame,
     None
     """
 
-    protseq = upper(protseq)
+    protseq = protseq.upper()
     COILS_raw, HOTLOOPS_raw, REM465_raw = JensenNet(protseq)
 
     pred = {'sequence': protseq}
@@ -282,47 +303,47 @@ def main():
 
     parser.add_argument('--smooth_frame',
         type=int,
-        default=8,
+        default=default_params['smooth_frame'],
         help='smooth_frame (window length = smooth_frame * 2 + 1)')
 
     parser.add_argument('--peak_frame',
         type=int,
-        default=8,
+        default=default_params['peak_frame'],
         help='peak_frame')
 
     parser.add_argument('--join_frame',
         type=int,
-        default=4,
+        default=default_params['join_frame'],
         help='join_frame')
 
     parser.add_argument('--fold_coils',
         type=float,
-        default=1.2,
+        default=default_params['fold_coils'],
         help='fold_coils')
 
     parser.add_argument('--fold_hotloops',
         type=float,
-        default=1.4,
+        default=default_params['fold_hotloops'],
         help='fold_hotloops')
 
     parser.add_argument('--fold_rem465',
         type=float,
-        default=1.2,
+        default=default_params['fold_rem465'],
         help='fold_rem465')
 
     parser.add_argument('--expect_coils',
         type=float,
-        default=0.43,
+        default=default_params['expect_coils'],
         help='expect_coils')
 
     parser.add_argument('--expect_hotloops',
         type=float,
-        default=0.086,
+        default=default_params['expect_hotloops'],
         help='expect_hotloops')
 
     parser.add_argument('--expect_rem465',
         type=float,
-        default=0.50,
+        default=default_params['expect_rem465'],
         help='expect_rem465')
 
     parser.add_argument('--new_filter',
@@ -355,57 +376,57 @@ def main():
                     args.fold_hotloops, args.fold_rem465,
                     args.inputfile, args.mode]
 
-        runDisEMBLpipeline()
+        runDisEMBLpipeline(quiet=args.quiet)
         return
 
 
     if not args.quiet:
-        print "\n".join(
-             (' ____  _     _____ __  __ ____  _     ',
-              '|  _ \(_)___| ____|  \/  | __ )| |    ',
-              '| | | | / __|  _| | |\/| |  _ \| |    ',
-              '| |_| | \__ \ |___| |  | | |_) | |___ ',
-              '|____/|_|___/_____|_|  |_|____/|_____|',
-              '# ',
-              '# Original:',
-              '# Copyright (C) 2004 - Rune Linding & Lars Juhl Jensen',
-              '# EMBL Biocomputing Unit - Heidelberg - Germany',
-              '# ',
-              '# Rewrite (v2.0+):',
-              '# Copyright (C) 2016 - Shyam Saladi',
-              '# California Institute of Technology - Pasadena - CA - USA',
-              '# ')) #, sep="\n", file=sys.stderr)
+        banner = \
+        (' ____  _     _____ __  __ ____  _     ',
+         '|  _ \(_)___| ____|  \/  | __ )| |    ',
+         '| | | | / __|  _| | |\/| |  _ \| |    ',
+         '| |_| | \__ \ |___| |  | | |_) | |___ ',
+         '|____/|_|___/_____|_|  |_|____/|_____|',
+         '# ',
+         '# Original:',
+         '# Copyright (C) 2004 - Rune Linding & Lars Juhl Jensen',
+         '# EMBL Biocomputing Unit - Heidelberg - Germany',
+         '# ',
+         '# Rewrite (v2.0+):',
+         '# Copyright (C) 2016 - Shyam Saladi',
+         '# California Institute of Technology - Pasadena - CA - USA',
+         '# ')
+        print("\n".join(banner)) #, sep="\n", file=sys.stderr)
 
     for record in Bio.SeqIO.parse(args.inputfile, args.inputformat):
-        sequence = upper(str(record.seq))
+        sequence = str(record.seq).upper()
 
         preds = calc_disembl(sequence, args.smooth_frame)
 
         if args.mode == 'default':
+            slices = get_all_slices(coils = preds.coils.tolist(),
+                                    rem465 = preds.rem465.tolist(),
+                                    hotloops = preds.hotloops.tolist(),
+                                    fold_coils=args.fold_coils,
+                                    expect_coils=args.expect_coils,
+                                    fold_rem465=args.fold_rem465,
+                                    expect_rem465=args.expect_rem465,
+                                    fold_hotloops=args.fold_hotloops,
+                                    expect_hotloops=args.expect_hotloops,
+                                    join_frame=args.join_frame,
+                                    peak_frame=args.peak_frame)
             sys.stdout.write('> ' + record.id + '_COILS ')
-            reportSlicesTXT(getSlices(preds.coils.tolist(),
-                                      args.fold_coils,
-                                      args.join_frame,
-                                      args.peak_frame,
-                                      args.expect_coils), sequence)
+            reportSlicesTXT(slices['coils'], sequence)
             sys.stdout.write('> ' + record.id + '_REM465 ')
-            reportSlicesTXT(getSlices(preds.coils.tolist(),
-                                      args.fold_rem465,
-                                      args.join_frame,
-                                      args.peak_frame,
-                                      args.expect_rem465), sequence)
+            reportSlicesTXT(slices['rem465'], sequence)
             sys.stdout.write('> ' + record.id + '_HOTLOOPS ')
-            reportSlicesTXT(getSlices(preds.coils.tolist(),
-                                      args.fold_hotloops,
-                                      args.join_frame,
-                                      args.peak_frame,
-                                      args.expect_hotloops), sequence)
+            reportSlicesTXT(slices['hotloops'], sequence)
             print('\n')
         elif args.mode == 'scores':
             # Format header row as close to original DisEMBL as reasonable
             preds.rename(columns={"sequence": "residue"}, inplace=True)
             preds.columns = [upper(x) for x in preds.columns]
-            print(preds.to_csv(sep="\t", index=False))
+            print(preds.to_csv(sep="    ", index=False))
     return
 
 
