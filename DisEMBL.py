@@ -279,7 +279,7 @@ def main():
                         type=str,
                         choices=['default', 'scores'],
                         default='default',
-                        help='mode: default or scores which will give scores
+                        help='mode: default or scores which will give scores'
                              'per residue in TAB seperated format')
 
     parser.add_argument('--quiet',
