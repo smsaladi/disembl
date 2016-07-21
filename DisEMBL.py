@@ -5,7 +5,7 @@
 # DisEMBL pipeline
 
 # Modified to work with current versions of Biopython (1.7+)
-# by Shyam Saladi (saladi1@illinois.edu), Janauary 2013 
+# by Shyam Saladi (saladi1@illinois.edu), Janauary 2013
 # Bio:SeqIO completely replaces Bio:Fasta
 
 from string import *
@@ -19,8 +19,8 @@ import os
 from os import system,popen3
 
 # change these to the correct paths
-NN_bin = '/PATH/DisEMBL-1.4/disembl'
-SG_bin = '/PATH/DisEMBL-1.4/sav_gol'
+NN_bin = '/ul/saladi/disembl/disembl'
+SG_bin = '/ul/saladi/disembl/sav_gol'
 
 def JensenNet(sequence):
     outFile = tempfile.mktemp()
@@ -151,7 +151,7 @@ def runDisEMBLpipeline():
     print '# EMBL Biocomputing Unit - Heidelberg - Germany        '
     print '#'
     for cur_record in SeqIO.parse(db, "fasta"):
-	    sequence = upper(str(cur_record.seq.data))
+	    sequence = upper(str(cur_record.seq))
             # Run NN
             COILS_raw, HOTLOOPS_raw, REM465_raw = JensenNet(sequence)
             # Run Savitzky-Golay
