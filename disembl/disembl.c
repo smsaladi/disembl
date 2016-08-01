@@ -13,12 +13,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* run in old mode with scores printed to standard out*/
+#define OLD
+
 /* Define size of the alphabet */
-#define na 21
+#define NA 21
 
 /* Define max number of neurons */
-#define mw 41
-#define mh 30
+#define MW 41
+#define MH 30
 
 #include "russel.h"
 #include "bfactor.h"
@@ -67,17 +70,17 @@ float sigmoid[256] = {
 static float
 feed_forward(int const *s, float const w[], int nw, int nh) {
 
-  float h[mh], o[2], x;
+  float h[MH], o[2], x;
   int i, j;
 
   /* Shift input window to match network window size */
-  s += (mw-nw)/2;
+  s += (MW-nw)/2;
 
   /* Feed input values to hidden layer making use of sparse encoding */
   for (i = 0; i < nh; ++i) {
-    x = w[(na*nw+1)*(i+1)-1];
+    x = w[(NA*nw+1)*(i+1)-1];
     for (j = 0; j < nw; ++j) {
-      x += w[(na*nw+1)*i+na*j+s[j]];
+      x += w[(NA*nw+1)*i+NA*j+s[j]];
     }
     if (x <= -16) {
       h[i] = 0;
@@ -90,9 +93,9 @@ feed_forward(int const *s, float const w[], int nw, int nh) {
 
   /* Feed hidden layer values to output layer */
   for (i = 0; i <= 1; ++i) {
-    x = w[(na*nw+1)*nh+(nh+1)*(i+1)-1];
+    x = w[(NA*nw+1)*nh+(nh+1)*(i+1)-1];
     for (j = 0; j < nh; ++j) {
-      x += w[(na*nw+1)*nh+(nh+1)*i+j]*h[j];
+      x += w[(NA*nw+1)*nh+(nh+1)*i+j]*h[j];
     }
     if (x <= -16) {
       o[i] = 0;
@@ -158,51 +161,57 @@ predict_seq(char const *seq, float *sm_arr, float *sb_arr, float *sr_arr) {
     char *alphabet = "FIVWMLCHYAGNRTPDEQSK";
 
     char *p;
-    int c, i, j, s[mw];
+    int c, i, j, s[MW];
 
     // Fill with default values
-    for (i = 0; i < mw; ++i)
-        s[i] = na-1;
+    for (i = 0; i < MW; ++i)
+        s[i] = NA-1;
 
-    if ((int)strlen(seq) < (mw-1)/2) {
-        printf("Sequence must be at least %d residues long", (mw-1)/2);
+    if ((int)strlen(seq) < (MW-1)/2) {
+        printf("Sequence must be at least %d residues long", (MW-1)/2);
         exit(1);
     }
 
-    for (i = 0; i < (int)strlen(seq); i++) {
+    for (i = 0; i < (int)strlen(seq); ++i) {
         p = strchr(alphabet, seq[i]);
         // If character (residue) is not found in alphabet (e.g. X),
         // it's skipped over in the calculation
         // Could be an issue with mantaining sequence-to-score register (Shyam)
         if (p != NULL) {
             // Move characters over in array
-            for (j = 1; j < mw; ++j)
-                s[mw-j] = s[mw-j-1];
+            for (j = 1; j < MW; ++j)
+                s[MW-j] = s[MW-j-1];
             // Assign new character
             s[0] = p - alphabet;
-        }
 
-        if (i >= (mw-1)/2) {
-            predict(s,
-                    &sm_arr[i-(mw-1)/2],
-                    &sb_arr[i-(mw-1)/2],
-                    &sr_arr[i-(mw-1)/2]);
+            // start score calculation when window has been filled up
+            if (i >= (MW-1)/2) {
+                predict(s,
+                        &sm_arr[i-(MW-1)/2],
+                        &sb_arr[i-(MW-1)/2],
+                        &sr_arr[i-(MW-1)/2]);
 
-            printf("%f\t%f\t%f\n", sr_arr[i-(mw-1)/2], sb_arr[i-(mw-1)/2], sm_arr[i-(mw-1)/2]);
+#ifdef OLD
+                printf("%d\t%f\t%f\t%f\n", i-(MW-1)/2, sr_arr[i-(MW-1)/2], sb_arr[i-(MW-1)/2], sm_arr[i-(MW-1)/2]);
+#endif
+
+            }
         }
     }
 
     // Last bit of sequence
-    for (i = (int)strlen(seq)-(mw-1)/2; i < (int)strlen(seq); i++) {
+    for (i = (int)strlen(seq)-(MW-1)/2; i < (int)strlen(seq); ++i) {
         // Move characters over in array
-        for (j = 1; j < mw; ++j)
-            s[mw-j] = s[mw-j-1];
+        for (j = 1; j < MW; ++j)
+            s[MW-j] = s[MW-j-1];
         // Assign new character (placeholder)
-        s[0] = na-1;
+        s[0] = NA-1;
 
         predict(s, &sm_arr[i], &sb_arr[i], &sr_arr[i]);
 
-        printf("%f\t%f\t%f\n", sr_arr[i], sb_arr[i], sm_arr[i]);
+#ifdef OLD
+        printf("%d\t%f\t%f\t%f\n", i, sr_arr[i], sb_arr[i], sm_arr[i]);
+#endif
 
     }
 
