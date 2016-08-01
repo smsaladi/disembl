@@ -50,7 +50,7 @@ default_params = {
 }
 
 
-def JensenNet(sequence, NN_bin='/Users/saladi/disembl/disembl'):
+def JensenNet(sequence, NN_bin='/Users/saladi/disembl/disembl/disembl'):
     with subprocess.Popen([NN_bin],
                           stdin=subprocess.PIPE,
                           stdout=subprocess.PIPE,
@@ -178,7 +178,7 @@ def calc_disembl(protseq, smooth_frame=default_params['smooth_frame'],
     protseq = protseq.upper()
     COILS_raw, HOTLOOPS_raw, REM465_raw = JensenNet(protseq)
 
-    pred = {'sequence': protseq}
+    pred = {'sequence': list(protseq)}
 
     if coils:
         pred['coils'] = scipy.signal.savgol_filter(COILS_raw,
@@ -333,8 +333,8 @@ def main():
         elif args.mode == 'scores':
             # Format header row as close to original DisEMBL as reasonable
             preds.rename(columns={"sequence": "residue"}, inplace=True)
-            preds.columns = [upper(x) for x in preds.columns]
-            print(preds.to_csv(sep="    ", index=False))
+            preds.columns = [x.upper() for x in preds.columns]
+            print(preds.to_csv(sep=" ", index=False))
     return
 
 
