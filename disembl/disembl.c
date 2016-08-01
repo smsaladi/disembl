@@ -24,6 +24,7 @@
 #include "bfactor.h"
 #include "missing.h"
 
+static
 float sigmoid[256] = {
   0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000,
   0.000000, 0.000000, 0.000000, 0.000000, 0.000001, 0.000001, 0.000001, 0.000001,
@@ -60,13 +61,11 @@ float sigmoid[256] = {
 };
 
 
-
-
 /*
  *  Perform feed forward evaluation of a neural network on a sequence window.
  */
-
-float feed_forward(int const *s, float const w[], int nw, int nh) {
+static float
+feed_forward(int const *s, float const w[], int nw, int nh) {
 
   float h[mh], o[2], x;
   int i, j;
@@ -110,88 +109,118 @@ float feed_forward(int const *s, float const w[], int nw, int nh) {
 }
 
 
+/*
+ *  Calculate scores for a sequence window.
+ */
+
+static void
+predict(int const *s, float *sm, float *sb, float *sr) {
+
+    *sr = feed_forward(s, r19_1, 19, 30) +
+       feed_forward(s, r19_2, 19, 30) +
+       feed_forward(s, r19_3, 19, 30) +
+       feed_forward(s, r19_4, 19, 30) +
+       feed_forward(s, r19_5, 19, 30);
+    *sr = 0.07387214+0.8020778*(*sr)/5;
+
+    *sb = feed_forward(s, b41_1, 41, 5) +
+       feed_forward(s, b41_2, 41, 5) +
+       feed_forward(s, b41_3, 41, 5) +
+       feed_forward(s, b41_4, 41, 5) +
+       feed_forward(s, b41_5, 41, 5);
+    *sb = 0.08016882+0.6282424*(*sb)/5;
+    *sb *= *sr;
+
+    *sm = feed_forward(s, m9_1, 9, 30) +
+       feed_forward(s, m9_2, 9, 30) +
+       feed_forward(s, m9_3, 9, 30) +
+       feed_forward(s, m9_4, 9, 30) +
+       feed_forward(s, m9_5, 9, 30) +
+       feed_forward(s, m21_1, 21, 30) +
+       feed_forward(s, m21_2, 21, 30) +
+       feed_forward(s, m21_3, 21, 30) +
+       feed_forward(s, m21_4, 21, 30) +
+       feed_forward(s, m21_5, 21, 30);
+    *sm /= 10;
+
+    return;
+}
 
 
 /*
- *  Calculate and print scores for a sequence window.
+ *  Calculate scores for an entire sequence
  */
+void
+predict_seq(char const *seq, float *sm_arr, float *sb_arr, float *sr_arr) {
+    // This ordering specifies how characters (residues)
+    // are turned into numbers to be interpreted by the
+    // neural network (Shyam)
+    char *alphabet = "FIVWMLCHYAGNRTPDEQSK";
 
-void predict(int const *s) {
+    char *p;
+    int c, i, j, s[mw];
 
-  float sm, sb, sr;
+    // Fill with default values
+    for (i = 0; i < mw; ++i)
+        s[i] = na-1;
 
-  if (s[(mw-1)/2] == na-1) {
-    return;
-  }
-
-  sr = 0;
-  sr += feed_forward(s, r19_1, 19, 30);
-  sr += feed_forward(s, r19_2, 19, 30);
-  sr += feed_forward(s, r19_3, 19, 30);
-  sr += feed_forward(s, r19_4, 19, 30);
-  sr += feed_forward(s, r19_5, 19, 30);
-  sr /= 5;
-  sr = 0.07387214+0.8020778*sr;
-
-  sb = 0;
-  sb += feed_forward(s, b41_1, 41, 5);
-  sb += feed_forward(s, b41_2, 41, 5);
-  sb += feed_forward(s, b41_3, 41, 5);
-  sb += feed_forward(s, b41_4, 41, 5);
-  sb += feed_forward(s, b41_5, 41, 5);
-  sb /= 5;
-  sb = 0.08016882+0.6282424*sb;
-
-  sm = 0;
-  sm += feed_forward(s, m9_1, 9, 30);
-  sm += feed_forward(s, m9_2, 9, 30);
-  sm += feed_forward(s, m9_3, 9, 30);
-  sm += feed_forward(s, m9_4, 9, 30);
-  sm += feed_forward(s, m9_5, 9, 30);
-  sm += feed_forward(s, m21_1, 21, 30);
-  sm += feed_forward(s, m21_2, 21, 30);
-  sm += feed_forward(s, m21_3, 21, 30);
-  sm += feed_forward(s, m21_4, 21, 30);
-  sm += feed_forward(s, m21_5, 21, 30);
-  sm /= 10;
-
-  printf("%f\t%f\t%f\n", sr, sr*sb, sm);
-
-}
-
-int main(int ARGC, char *ARGV[]) {
-
-  char *alphabet = strdup("FIVWMLCHYAGNRTPDEQSK");
-
-  char *p;
-  int c, i, j, s[mw];
-
-  for (i = 0; i < mw; ++i) {
-    s[i] = na-1;
-  }
-
-  while (!feof(stdin)) {
-
-    c = fgetc(stdin);
-    p = strchr(alphabet, c);
-    if (p != NULL) {
-      for (i = 1; i < mw; ++i) {
-        s[mw-i] = s[mw-i-1];
-      }
-      s[0] = p-alphabet;
-      predict(s);
-    } else if ((char)c == '\n') {
-      for (i = 0; i < (mw-1)/2; i++) {
-        for (j = 1; j < mw; ++j) {
-          s[mw-j] = s[mw-j-1];
-        }
-        s[0] = na-1;
-        predict(s);
-      }
+    if ((int)strlen(seq) < (mw-1)/2) {
+        printf("Sequence must be at least %d residues long", (mw-1)/2);
+        exit(1);
     }
 
-  }
+    for (i = 0; i < (int)strlen(seq); i++) {
+        p = strchr(alphabet, seq[i]);
+        // If character (residue) is not found in alphabet (e.g. X),
+        // it's skipped over in the calculation
+        // Could be an issue with mantaining sequence-to-score register (Shyam)
+        if (p != NULL) {
+            // Move characters over in array
+            for (j = 1; j < mw; ++j)
+                s[mw-j] = s[mw-j-1];
+            // Assign new character
+            s[0] = p - alphabet;
+        }
+
+        if (i >= (mw-1)/2) {
+            predict(s,
+                    &sm_arr[i-(mw-1)/2],
+                    &sb_arr[i-(mw-1)/2],
+                    &sr_arr[i-(mw-1)/2]);
+
+            printf("%f\t%f\t%f\n", sr_arr[i-(mw-1)/2], sb_arr[i-(mw-1)/2], sm_arr[i-(mw-1)/2]);
+        }
+    }
+
+    // Last bit of sequence
+    for (i = (int)strlen(seq)-(mw-1)/2; i < (int)strlen(seq); i++) {
+        // Move characters over in array
+        for (j = 1; j < mw; ++j)
+            s[mw-j] = s[mw-j-1];
+        // Assign new character (placeholder)
+        s[0] = na-1;
+
+        predict(s, &sm_arr[i], &sb_arr[i], &sr_arr[i]);
+
+        printf("%f\t%f\t%f\n", sr_arr[i], sb_arr[i], sm_arr[i]);
+
+    }
+
+    return;
+}
+
+
+int main(int ARGC, char *ARGV[]) {
+    // Read in single sequence line from standard input
+    char *buffer = NULL;
+    size_t len;
+    int seq_len = getline(&buffer, &len, stdin);
+    if (seq_len == -1)
+        printf("No line read...\n");
+
+    // Calculate scores
+    float sm_arr[seq_len], sb_arr[seq_len], sr_arr[seq_len];
+    predict_seq(buffer, sm_arr, sb_arr, sr_arr);
 
   return(0);
-
 }
