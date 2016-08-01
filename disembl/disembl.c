@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* run in old mode with scores printed to standard out*/
+/* Uncomment to have scores printed to standard output */
 #define OLD
 
 /* Define size of the alphabet */
@@ -27,8 +27,7 @@
 #include "bfactor.h"
 #include "missing.h"
 
-static
-float sigmoid[256] = {
+static float sigmoid[256] = {
   0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000,
   0.000000, 0.000000, 0.000000, 0.000000, 0.000001, 0.000001, 0.000001, 0.000001,
   0.000001, 0.000001, 0.000001, 0.000001, 0.000001, 0.000002, 0.000002, 0.000002,
@@ -70,52 +69,50 @@ float sigmoid[256] = {
 static float
 feed_forward(int const *s, float const w[], int nw, int nh) {
 
-  float h[MH], o[2], x;
-  int i, j;
+    float h[MH], o[2], x;
+    int i, j;
 
-  /* Shift input window to match network window size */
-  s += (MW-nw)/2;
+    /* Shift input window to match network window size */
+    s += (MW-nw)/2;
 
-  /* Feed input values to hidden layer making use of sparse encoding */
-  for (i = 0; i < nh; ++i) {
-    x = w[(NA*nw+1)*(i+1)-1];
-    for (j = 0; j < nw; ++j) {
-      x += w[(NA*nw+1)*i+NA*j+s[j]];
+    /* Feed input values to hidden layer making use of sparse encoding */
+    for (i = 0; i < nh; ++i) {
+        x = w[(NA*nw+1)*(i+1)-1];
+
+        for (j = 0; j < nw; ++j)
+            x += w[(NA*nw+1)*i+NA*j+s[j]];
+
+        if (x <= -16)
+            h[i] = 0;
+        else if (x >= 16)
+            h[i] = 1;
+        else
+            h[i] = sigmoid[(int)(8*x+128)];
     }
-    if (x <= -16) {
-      h[i] = 0;
-    } else if (x >= 16) {
-      h[i] = 1;
-    } else {
-      h[i] = sigmoid[(int)(8*x+128)];
-    }
-  }
 
-  /* Feed hidden layer values to output layer */
-  for (i = 0; i <= 1; ++i) {
-    x = w[(NA*nw+1)*nh+(nh+1)*(i+1)-1];
-    for (j = 0; j < nh; ++j) {
-      x += w[(NA*nw+1)*nh+(nh+1)*i+j]*h[j];
-    }
-    if (x <= -16) {
-      o[i] = 0;
-    } else if (x >= 16) {
-      o[i] = 1;
-    } else {
-      o[i] = sigmoid[(int)(8*x+128)];
-    }
-  }
+    /* Feed hidden layer values to output layer */
+    for (i = 0; i <= 1; ++i) {
+        x = w[(NA*nw+1)*nh+(nh+1)*(i+1)-1];
 
-  /* Combine the scores from the two output neurons */
-  return((o[0]+1-o[1])/2);
+        for (j = 0; j < nh; ++j)
+            x += w[(NA*nw+1)*nh+(nh+1)*i+j]*h[j];
 
+        if (x <= -16)
+            o[i] = 0;
+        else if (x >= 16)
+            o[i] = 1;
+        else
+            o[i] = sigmoid[(int)(8*x+128)];
+    }
+
+    /* Combine the scores from the two output neurons */
+    return((o[0]+1-o[1])/2);
 }
 
 
 /*
  *  Calculate scores for a sequence window.
  */
-
 static void
 predict(int const *s, float *sm, float *sb, float *sr) {
 
@@ -192,7 +189,11 @@ predict_seq(char const *seq, float *sm_arr, float *sb_arr, float *sr_arr) {
                         &sr_arr[i-(MW-1)/2]);
 
 #ifdef OLD
-                printf("%d\t%f\t%f\t%f\n", i-(MW-1)/2, sr_arr[i-(MW-1)/2], sb_arr[i-(MW-1)/2], sm_arr[i-(MW-1)/2]);
+                printf("%d\t%f\t%f\t%f\n",
+                       i-(MW-1)/2,
+                       sr_arr[i-(MW-1)/2],
+                       sb_arr[i-(MW-1)/2],
+                       sm_arr[i-(MW-1)/2]);
 #endif
 
             }
