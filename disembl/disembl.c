@@ -13,6 +13,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* inclusion of the header file for compiled linking*/
+#include "disembl.h"
+
 /* run in old mode with scores printed to standard out*/
 #define OLD
 
