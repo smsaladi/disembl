@@ -1,4 +1,4 @@
-from distutils.core import setup
+from distutils.core import setup, Extension
 setup(
   name='disembl',
   packages=['disembl'],
@@ -12,7 +12,7 @@ setup(
   license='Non-commercial Academic Use License'
   intsall_requires=['numpy', 'ctypes','scipy','biopython', 'pandas']
   ext_modules=[Extension('_disembl',
-                             ['disembl.c'],
+                             sources=['disembl.c'],
                              extra_link_args=['-Wall', '-Werror', '-O2',
                                                 '-fpic', '-shared', '-o',])]
 )
