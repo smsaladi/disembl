@@ -13,12 +13,13 @@ import numpy.ctypeslib as npct
 
 # find and load the disembl.so executeable file
 
-cfile = c.cdll('./libdisembl.so')
-cfile.argstype = [c_char_p, array_1d_float, array_1d_float, array_1d_float]
+cfile = c.cdll.LibraryLoader('libdisembl.so')
+cfile.argstype = ['c_char_p', 'array_1d_float', 'array_1d_float',
+                'array_1d_float']
 
 def predict_seq(seq, sm, sb, sr):
     # make a ctypes string of seq
-    cseq= c.c_char_p(seq)
+    cseq = c.c_char_p(seq)
 
     # create the array of pointers to feed into the c function
     sm_arr = npct.ndpointer(dtype=np.float, ndim=1, flags='CONTIGUOUS')
@@ -27,7 +28,7 @@ def predict_seq(seq, sm, sb, sr):
 
     cfile(seq, sm_arr, sb_arr, ar_arr)
 
-    #contvert pointer arrays back into python lists for calc_disembl
+    #  pointer arrays back into python lists for calc_disembl
     sm_float = ctypes.cast(sm_arr, ctypes.POINTER(ctypes.c_float))
     sm_list = [sm_float[i] for i in range(arrayLength)]
 
