@@ -158,7 +158,7 @@ predict_seq(char const *seq, float *sm_arr, float *sb_arr, float *sr_arr) {
     char *alphabet = "FIVWMLCHYAGNRTPDEQSK";
 
     char *p;
-    int c, i, j, s[MW];
+    int i, j, s[MW];
 
     // Fill with default values
     for (i = 0; i < MW; ++i)
