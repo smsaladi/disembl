@@ -9,10 +9,7 @@ setup(
   url='https://github.com/smsaladi/disembl',
   download_url='https://github.com/smsaladi/disembl/tarball/2.0',
   keywords=['protein', 'disorder', 'sequence', 'bioinformatics'],
-  license='Non-commercial Academic Use License'
-  intsall_requires=['numpy', 'ctypes','scipy','biopython', 'pandas']
-  ext_modules=[Extension('_disembl',
-                             sources=['disembl.c'],
-                             extra_link_args=['-Wall', '-Werror', '-O2',
-                                                '-fpic', '-shared', '-o',])]
+  license='Non-commercial Academic Use License',
+  intsall_requires=['numpy', 'ctypes', 'scipy', 'biopython', 'pandas'],
+  ext_modules=[Extension('disembl.libdisembl', sources=['disembl/libdisembl.c'])]
 )
