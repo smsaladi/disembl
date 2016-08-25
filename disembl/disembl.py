@@ -49,7 +49,7 @@ as well as through direct calls to calc_disembl.
 def JensenNet(seq):
     """Calculate hotloop, coil, and REM465 propensities
 
-    Wraps predict_seq from libdisembl.c
+    Wraps predict_seq from libdisembl.c. Loads library upon first call.
 
     Parameters
     ----------
@@ -75,7 +75,6 @@ def JensenNet(seq):
                                            ndpointer(dtype=np.float32),
                                            ndpointer(dtype=np.float32)]
         libdisembl.predict_seq.restype = ctypes.c_void_p
-
 
     # create arrays for disembl output
     coils = np.zeros(len(seq), dtype=np.float32)
@@ -324,7 +323,9 @@ def calc_disembl(sequence, mode='summary', print_output=False,
 
     if mode == 'scores':
         if print_output:
-            print(preds.to_string())
+            preds.rename(columns=lambda x: x.upper(), inplace=True)
+            preds = preds[['RESIDUE', 'COILS', 'REM465', 'HOTLOOPS']]
+            print(preds.to_string(index=False))
         return preds
     elif mode == 'summary':
         slices = {
