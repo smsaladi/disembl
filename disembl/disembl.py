@@ -208,15 +208,15 @@ def calc_disembl_raw(protseq, smooth_frame, calc_coils, calc_hotloops,
 
     for name in to_calculate:
         if old_filter:
-            temp_beg = np.copy(pred.loc[:, name].iloc[:smooth_frame].values)
-            temp_end = np.copy(pred.loc[:, name].iloc[-smooth_frame:].values)
+            temp_beg = np.copy(pred.loc[:, name].values[:smooth_frame])
+            temp_end = np.copy(pred.loc[:, name].values[-smooth_frame:])
 
         pred[name] = scipy.signal.savgol_filter(pred[name],
                             window_length=smooth_frame*2+1,
                             polyorder=2, deriv=0, mode='interp')
         if old_filter:
-            pred.loc[:, name].iloc[:smooth_frame] = temp_beg
-            pred.loc[:, name].iloc[-smooth_frame:] = temp_end
+            pred.loc[:, name].values[:smooth_frame] = temp_beg
+            pred.loc[:, name].values[-smooth_frame:] = temp_end
 
     return pred
 
