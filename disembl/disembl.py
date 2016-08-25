@@ -197,41 +197,26 @@ def calc_disembl_raw(protseq, smooth_frame, calc_coils, calc_hotloops,
 
     pred = JensenNet(protseq.upper())
 
+    to_calculate = []
+
     if calc_coils:
-        if old_filter:
-            temp_beg = np.copy(pred['coils'].values[:smooth_frame])
-            temp_end = np.copy(pred['coils'].values[-smooth_frame:])
-
-        pred['coils'] = scipy.signal.savgol_filter(pred['coils'],
-                            window_length=smooth_frame*2+1,
-                            polyorder=2, deriv=0, mode='interp')
-        if old_filter:
-            pred['coils'][:smooth_frame] = temp_beg
-            pred['coils'][-smooth_frame:] = temp_end
-
+        to_calculate.append('coils')
     if calc_hotloops:
-        if old_filter:
-            temp_beg = np.copy(pred['hotloops'].values[:smooth_frame])
-            temp_end = np.copy(pred['hotloops'].values[-smooth_frame:])
-
-        pred['hotloops'] = scipy.signal.savgol_filter(pred['hotloops'],
-                            window_length=smooth_frame*2+1,
-                            polyorder=2, deriv=0, mode='interp')
-        if old_filter:
-            pred['hotloops'][:smooth_frame] = temp_beg
-            pred['hotloops'][-smooth_frame:] = temp_end
-
+        to_calculate.append('hotloops')
     if calc_rem465:
-        if old_filter:
-            temp_beg = np.copy(pred['rem465'].values[:smooth_frame])
-            temp_end = np.copy(pred['rem465'].values[-smooth_frame:])
+        to_calculate.append('rem465')
 
-        pred['rem465'] = scipy.signal.savgol_filter(pred['rem465'],
+    for name in to_calculate:
+        if old_filter:
+            temp_beg = np.copy(pred.loc[:, name].iloc[:smooth_frame].values)
+            temp_end = np.copy(pred.loc[:, name].iloc[-smooth_frame:].values)
+
+        pred[name] = scipy.signal.savgol_filter(pred[name],
                             window_length=smooth_frame*2+1,
                             polyorder=2, deriv=0, mode='interp')
         if old_filter:
-            pred['rem465'][:smooth_frame] = temp_beg
-            pred['rem465'][-smooth_frame:] = temp_end
+            pred.loc[:, name].iloc[:smooth_frame] = temp_beg
+            pred.loc[:, name].iloc[-smooth_frame:] = temp_end
 
     return pred
 
@@ -247,7 +232,7 @@ def calc_disembl(sequence, mode='summary', print_output=False,
                  expect_hotloops=default_params['expect_hotloops'],
                  join_frame=default_params['join_frame'],
                  peak_frame=default_params['peak_frame'],
-                 old_filter=False):
+                 old_filter=True):
     """Wrapper function to calculate the DisEMBL disorder predictions for a
     sequence of interest
 
