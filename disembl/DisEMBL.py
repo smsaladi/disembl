@@ -62,24 +62,38 @@ def JensenNet(sequence, NN_bin='/Users/saladi/disembl/disembl/disembl'):
 
 def getSlices(NNdata, fold, join_frame, peak_frame, expect_val):
     slices = []
-    inSlice = 0
-    for i in range(len(NNdata)):
+
+    inSlice = False
+    beginSlice = 0
+    endSlice = 0
+    maxSlice = NNdata[0]
+
+    ## here we find windows with all values > expect_val and at least one
+    ## value >= fold*expect_val, storing the first and last residue positions
+    ## in slices [(,),(,),(,)]
+
+    for i, nn_value in enumerate(NNdata):
         if inSlice:
-            if NNdata[i] < expect_val:
+            if nn_value < expect_val:
                 if maxSlice >= fold*expect_val:
                     slices.append([beginSlice, endSlice])
                 inSlice = 0
             else:
                 endSlice += 1
-                if NNdata[i] > maxSlice:
-                    maxSlice = NNdata[i]
-        elif NNdata[i] >= expect_val:
+                if nn_value > maxSlice:
+                    maxSlice = nn_value
+        elif nn_value >= expect_val:
             beginSlice = i
             endSlice = i
-            inSlice = 1
-            maxSlice = NNdata[i]
+            inSlice = True
+            maxSlice = nn_value
     if inSlice and maxSlice >= fold*expect_val:
         slices.append([beginSlice, endSlice])
+
+    ## if the distance between successive windows is <= join_frame,
+    ## consolidate the two frames into a single one
+    ## after consolidating, if the length of a window is < peak_frame
+    ## then delete the window
 
     i = 0
     while i < len(slices):
