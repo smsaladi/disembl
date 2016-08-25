@@ -20,7 +20,7 @@ import sys
 import argparse
 
 import Bio.SeqIO
-import disembl.DisEMBL as disembl
+import disembl
 
 def main():
     # set up and parse arguments
@@ -94,8 +94,8 @@ def main():
                         type=str,
                         choices=['summary', 'scores'],
                         default='summary',
-                        help='mode: default or scores which will give scores'
-                             'per residue in TAB seperated format')
+                        help='Default (regions identified with upper/lowercase'
+                             'sequences or raw scores in tab delimited format')
 
     parser.add_argument('--quiet',
         action='store_true',

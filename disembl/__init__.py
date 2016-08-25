@@ -1,3 +1,3 @@
-__all__ = 'DisEMBL'
+__all__ = 'disembl'
 
-from .DisEMBL import calc_disembl
+from .disembl import calc_disembl

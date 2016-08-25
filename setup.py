@@ -11,6 +11,7 @@ setup(
   keywords=['protein', 'disorder', 'sequence', 'bioinformatics'],
   license='Non-commercial Academic Use License',
   intsall_requires=['numpy', 'ctypes', 'scipy', 'biopython', 'pandas'],
-  ext_modules=[Extension('disembl.libdisembl', sources=['disembl/libdisembl.c'])],
+  ext_modules=[Extension('disembl.libdisembl',
+                         sources=['disembl/libdisembl.c'])],
   scripts=['disembl/scripts/DisEMBL.py']
 )
