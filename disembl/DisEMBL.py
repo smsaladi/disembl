@@ -1,38 +1,39 @@
 #!/usr/bin/env python
 """
-This version of DisEMBL represents a complete rewriting of the code. The
-regions identified as disordered do not change.
-
-Much of the calculation is done with NumPy/Scipy instead of previously written,
-custom C code since it ends up being faster and significantly simplifies
-maintainance.
-
-The original calculation will be available via '--old' but will be removed in
-further versions.
-
-Authors:
+ ____  _     _____ __  __ ____  _        ____      ______
+|  _ \(_)___| ____|  \/  | __ )| |      /___  )   (  __  )
+| | | | / __|  _| | |\/| |  _ \| |         / /    | |  | |
+| |_| | \__ \ |___| |  | | |_) | |___     / /_    | |__| |
+|____/|_|___/_____|_|  |_|____/|_____|  /_____|(_)(______)
 
 Originally -
 Copyright (C) 2004 Rune Linding & Lars Juhl Jensen - EMBL
 
 Rewrite (2.0+) -
-Copyright (C) 2016 Shyam Saladi - Caltech
-
+Copyright (C) 2016 Nadine Bradbury & Shyam Saladi - Caltech
 
 The DisEMBL is licensed under the GNU General Public License
 (http://www.opensource.org/licenses/gpl-license.php)
 """
 
 import sys
-
-import subprocess
 import argparse
-import io
+import ctypes
 
+from numpy.ctypeslib import load_library, ndpointer
 import numpy as np
 import pandas as pd
 import scipy.signal
 import Bio.SeqIO
+
+libdisembl = load_library("libdisembl.so", ".")
+"""Load C library that does the heavy-lifting of the neural network
+"""
+libdisembl.predict_seq.argtypes = [ctypes.c_char_p,
+                                   ndpointer(dtype=np.float32),
+                                   ndpointer(dtype=np.float32),
+                                   ndpointer(dtype=np.float32)]
+libdisembl.predict_seq.restype = ctypes.c_void_p
 
 default_params = {
     'smooth_frame': 8,
@@ -45,20 +46,43 @@ default_params = {
     'expect_hotloops': 0.086,
     'expect_rem465': 0.50
 }
+"""Default parameters for identifying regions of disorder
 
+Specified here to facilitate using as default parameters both through argparse
+as well as through direct calls to calc_disembl.
+"""
 
-def JensenNet(sequence, NN_bin='/Users/saladi/disembl/disembl/disembl'):
-    with subprocess.Popen([NN_bin],
-                          stdin=subprocess.PIPE,
-                          stdout=subprocess.PIPE,
-                          universal_newlines=True) as p:
-        stdout_data = p.communicate(input=sequence + '\n')[0]
+def JensenNet(seq):
+    """Calculate hotloop, coil, and REM465 propensities
 
-    df = pd.read_csv(io.StringIO(stdout_data), header=None, comment='%',
-                     names=['COILS', 'HOTLOOPS', 'REM465'], delimiter='\t')
+    Wraps predict_seq from libdisembl.c
 
-    return df.COILS.tolist(), df.HOTLOOPS.tolist(), df.REM465.tolist()
+    Parameters
+    ----------
+    seq : str
+        Protein sequence for which propensities will be calculated
 
+    Returns
+    -------
+    pd.DataFrame
+        coils, hotloops, & rem465 propensities
+
+    Raises
+    ------
+    None
+    """
+    # create arrays for disembl output
+    coils = np.zeros(len(seq), dtype=np.float32)
+    rem465 = np.zeros_like(coils)
+    hotloops = np.zeros_like(coils)
+
+    # http://stackoverflow.com/a/37888716/2320823
+    libdisembl.predict_seq(str.encode(seq), rem465, hotloops, coils)
+
+    return pd.DataFrame({'sequence': list(seq),
+                         'coils': coils,
+                         'rem465': rem465,
+                         'hotloops': hotloops})
 
 def getSlices(NNdata, fold, join_frame, peak_frame, expect_val):
     slices = []
@@ -185,36 +209,45 @@ def calc_disembl(protseq, smooth_frame=default_params['smooth_frame'],
     None
     """
 
-    protseq = protseq.upper()
-    COILS_raw, HOTLOOPS_raw, REM465_raw = JensenNet(protseq)
-
-    pred = {'sequence': list(protseq)}
+    pred = JensenNet(protseq.upper())
 
     if coils:
-        pred['coils'] = scipy.signal.savgol_filter(COILS_raw,
+        if old_filter:
+            temp_beg = np.copy(pred['coils'].values[:smooth_frame])
+            temp_end = np.copy(pred['coils'].values[-smooth_frame:])
+
+        pred['coils'] = scipy.signal.savgol_filter(pred['coils'],
                             window_length=smooth_frame*2+1,
                             polyorder=2, deriv=0, mode='interp')
         if old_filter:
-            pred['coils'][:smooth_frame] = REM465_raw[:smooth_frame]
-            pred['coils'][-smooth_frame:] = REM465_raw[-smooth_frame:]
+            pred['coils'][:smooth_frame] = temp_beg
+            pred['coils'][-smooth_frame:] = temp_end
 
     if hotloops:
-        pred['hotloops'] = scipy.signal.savgol_filter(HOTLOOPS_raw,
+        if old_filter:
+            temp_beg = np.copy(pred['hotloops'].values[:smooth_frame])
+            temp_end = np.copy(pred['hotloops'].values[-smooth_frame:])
+
+        pred['hotloops'] = scipy.signal.savgol_filter(pred['hotloops'],
                             window_length=smooth_frame*2+1,
                             polyorder=2, deriv=0, mode='interp')
         if old_filter:
-            pred['hotloops'][:smooth_frame] = REM465_raw[:smooth_frame]
-            pred['hotloops'][-smooth_frame:] = REM465_raw[-smooth_frame:]
+            pred['hotloops'][:smooth_frame] = temp_beg
+            pred['hotloops'][-smooth_frame:] = temp_end
 
     if rem465:
-        pred['rem465'] = scipy.signal.savgol_filter(REM465_raw,
+        if old_filter:
+            temp_beg = np.copy(pred['rem465'].values[:smooth_frame])
+            temp_end = np.copy(pred['rem465'].values[-smooth_frame:])
+
+        pred['rem465'] = scipy.signal.savgol_filter(pred['rem465'],
                             window_length=smooth_frame*2+1,
                             polyorder=2, deriv=0, mode='interp')
         if old_filter:
-            pred['rem465'][:smooth_frame] = REM465_raw[:smooth_frame]
-            pred['rem465'][-smooth_frame:] = REM465_raw[-smooth_frame:]
+            pred['rem465'][:smooth_frame] = temp_beg
+            pred['rem465'][-smooth_frame:] = temp_end
 
-    return pd.DataFrame(pred)
+    return pred
 
 
 def main():

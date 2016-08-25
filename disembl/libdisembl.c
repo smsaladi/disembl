@@ -18,7 +18,7 @@
 #include <string.h>
 
 /* Uncomment to have scores printed to standard output */
-#define OLD
+// #define OLD
 
 /* Define size of the alphabet */
 #define NA 21
@@ -30,7 +30,7 @@
 #include "include/russel.h"
 #include "include/bfactor.h"
 #include "include/missing.h"
-#include "include/disembl.h"
+#include "include/libdisembl.h"
 
 static float sigmoid[256] = {
   0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000,
@@ -156,7 +156,7 @@ predict(int const *s, float *sm, float *sb, float *sr) {
  *  Calculate scores for an entire sequence
  */
 void
-predict_seq(char const *seq, float *sm_arr, float *sb_arr, float *sr_arr) {
+predict_seq(char const *seq, float sm_arr[], float sb_arr[], float sr_arr[]) {
     // This ordering specifies how characters (residues)
     // are turned into numbers to be interpreted by the
     // neural network (Shyam)
