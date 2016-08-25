@@ -16,8 +16,6 @@ The DisEMBL is licensed under the GNU General Public License
 (http://www.opensource.org/licenses/gpl-license.php)
 """
 
-import sys
-import argparse
 import ctypes
 from pkg_resources import resource_filename
 
@@ -25,17 +23,11 @@ from numpy.ctypeslib import load_library, ndpointer
 import numpy as np
 import pandas as pd
 import scipy.signal
-import Bio.SeqIO
 import Bio.SeqRecord
 
-libdisembl = load_library("libdisembl", resource_filename(__name__, '.'))
-"""Load C library that does the heavy-lifting of the neural network
+libdisembl = None
+"""C library that does the heavy-lifting (loaded upon 1st use)
 """
-libdisembl.predict_seq.argtypes = [ctypes.c_char_p,
-                                   ndpointer(dtype=np.float32),
-                                   ndpointer(dtype=np.float32),
-                                   ndpointer(dtype=np.float32)]
-libdisembl.predict_seq.restype = ctypes.c_void_p
 
 default_params = {
     'smooth_frame': 8,
@@ -73,6 +65,18 @@ def JensenNet(seq):
     ------
     None
     """
+    if libdisembl is None:
+        global libdisembl
+        libdisembl = load_library("libdisembl",
+                                  resource_filename(__name__, '.'))
+
+        libdisembl.predict_seq.argtypes = [ctypes.c_char_p,
+                                           ndpointer(dtype=np.float32),
+                                           ndpointer(dtype=np.float32),
+                                           ndpointer(dtype=np.float32)]
+        libdisembl.predict_seq.restype = ctypes.c_void_p
+
+
     # create arrays for disembl output
     coils = np.zeros(len(seq), dtype=np.float32)
     rem465 = np.zeros_like(coils)
@@ -150,7 +154,7 @@ def reportSlicesTXT(slices, sequence):
                 s = s + sequence[(slices[i][1]+1):(slices[i+1][0])].lower()
             elif slices[i][1] < len(sequence)-1:
                 s = s + sequence[(slices[i][1]+1):(len(sequence))].lower()
-    print('\n', s)
+    print('\n', s, sep='')
 
     return
 
@@ -245,19 +249,78 @@ def calc_disembl(sequence, mode='summary', print_output=False,
                  join_frame=default_params['join_frame'],
                  peak_frame=default_params['peak_frame'],
                  old_filter=False):
+    """Wrapper function to calculate the DisEMBL disorder predictions for a
+    sequence of interest
+
+    This is necessary to provide backwards compatibility such that predictions
+    can be made from scripts/DisEMBL.py (installed into the path by `pip`) as
+    well as by importing the module [new functionality].
+
+    Below, XXX refers to the options that correspond to `coils`, `hotloops`,
+    and `rem465`.
+
+    Parameters
+    ----------
+    protseq : str or Bio.SeqRecord.SeqRecord
+        Protein sequence for which to calculate DisEMBL scores
+
+    mode : Optional[str] ('summary' or 'scores')
+        Whether to return a summary of the disordered regions or the raw
+        predictions.
+
+    print_output : Optional[bool]
+        If `True`, output will be printed to stdout.  If protseq is provided
+        as a `str` and mode is `summary`, the sequence name will be the first
+        and last 7 characters separated by dots.
+
+    calc_XXX : Optional[bool]
+        Whether to provide XXX output. Passed to `calc_disembl_raw`.
+
+    smooth_frame : int
+        Number of residues forward and backward to smooth other (window size
+        would be smooth_frame * 2 + 1). Passed to `calc_disembl_raw`.
+
+    fold_XXX : Optional[float]
+        How much greater a peak value must be over its surrounding residues for
+        a window to be identified as disordered. Passed to `getSlices`.
+
+    expect_XXX : Optional[float]
+        Minimum value used to identify regions of disorder. Passed to
+        'getSlices`.
+
+    join_frame : int
+        If the distance between successive, putative regions is <= `join_frame`,
+        the two are consolidated. Passed to `getSlices`.
+
+    peak_frame : int
+        After consolidating, if the length of a putative region is <
+        `peak_frame`, the region is discarded. Passed to `getSlices`.
+
+    old_filter : Optional[bool]
+        The old filter (from TISEAN) simply replaces the first [smooth_frame]
+        and last [smooth_frame] values with the raw calcuations. Passed to
+        `calc_disembl_raw`.
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns corresponding to the sequence as well as the properties
+        specified (e.g. hotloops, coils)
+
+    Raises
+    ------
+    None
     """
-    summary or scores
-    """
+
     if isinstance(sequence, Bio.SeqRecord.SeqRecord):
-        preds = calc_disembl_raw(sequence.seq, smooth_frame=smooth_frame,
-                    calc_coils=calc_coils, calc_hotloops=calc_coils,
-                    calc_rem465=calc_coils, old_filter=old_filter)
         seq_id = sequence.id
+        sequence = str(sequence.seq)
     else:
-        preds = calc_disembl_raw(sequence, smooth_frame=smooth_frame,
-                    calc_coils=calc_coils, calc_hotloops=calc_coils,
-                    calc_rem465=calc_coils, old_filter=old_filter)
-        seq_id = 'disembl_seq'
+        seq_id = sequence[:7] + "..." + sequence[-7:]
+
+    preds = calc_disembl_raw(sequence, calc_coils=calc_coils,
+                calc_hotloops=calc_coils, calc_rem465=calc_coils,
+                smooth_frame=smooth_frame, old_filter=old_filter)
 
     if mode == 'scores':
         if print_output:
@@ -280,130 +343,8 @@ def calc_disembl(sequence, mode='summary', print_output=False,
             reportSlicesTXT(slices['rem465'], sequence)
             print('> ', seq_id, '_HOTLOOPS ', sep='', end='')
             reportSlicesTXT(slices['hotloops'], sequence)
-            print('\n')
+            print('\n', flush=True)
 
         return slices
-
-def main():
-    # set up and parse arguments
-    parser = argparse.ArgumentParser(
-        description='Calculate DisEMBL disorder prediction.',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-
-    parser.add_argument('inputfile',
-                        type=str,
-                        default=sys.stdin,
-                        help='File of protein coding sequences to predict on.')
-
-    parser.add_argument('--inputformat',
-                        type=str,
-                        default='fasta',
-                        help='File format of [protein_seq].'
-                             'Any Bio.SeqIO-readable supported')
-
-    parser.add_argument('--smooth_frame',
-                        type=int,
-                        default=default_params['smooth_frame'],
-                        help='smooth_frame (window = smooth_frame * 2 + 1)')
-
-    parser.add_argument('--peak_frame',
-                        type=int,
-                        default=default_params['peak_frame'],
-                        help='peak_frame')
-
-    parser.add_argument('--join_frame',
-                        type=int,
-                        default=default_params['join_frame'],
-                        help='join_frame')
-
-    parser.add_argument('--fold_coils',
-                        type=float,
-                        default=default_params['fold_coils'],
-                        help='fold_coils')
-
-    parser.add_argument('--fold_hotloops',
-                        type=float,
-                        default=default_params['fold_hotloops'],
-                        help='fold_hotloops')
-
-    parser.add_argument('--fold_rem465',
-                        type=float,
-                        default=default_params['fold_rem465'],
-                        help='fold_rem465')
-
-    parser.add_argument('--expect_coils',
-                        type=float,
-                        default=default_params['expect_coils'],
-                        help='expect_coils')
-
-    parser.add_argument('--expect_hotloops',
-                        type=float,
-                        default=default_params['expect_hotloops'],
-                        help='expect_hotloops')
-
-    parser.add_argument('--expect_rem465',
-                        type=float,
-                        default=default_params['expect_rem465'],
-                        help='expect_rem465')
-
-    parser.add_argument('--old_filter',
-                        action='store_true',
-                        help="Simply replace the first [smooth_frame] and last"
-                             " [smooth_frame] values, instead of using "
-                             "Use 'interp' from scipy.signal.savgol_filter")
-
-    parser.add_argument('--mode',
-                        type=str,
-                        choices=['default', 'scores'],
-                        default='default',
-                        help='mode: default or scores which will give scores'
-                             'per residue in TAB seperated format')
-
-    parser.add_argument('--quiet',
-        action='store_true',
-        help='Supress printing the DisEMBL banner')
-
-    args = parser.parse_args()
-
-    if not args.quiet:
-        print(' ____  _     _____ __  __ ____  _     ',
-              '|  _ \(_)___| ____|  \/  | __ )| |    ',
-              '| | | | / __|  _| | |\/| |  _ \| |    ',
-              '| |_| | \__ \ |___| |  | | |_) | |___ ',
-              '|____/|_|___/_____|_|  |_|____/|_____|',
-              '# ',
-              '# Original:',
-              '# Copyright (C) 2004 - Rune Linding & Lars Juhl Jensen',
-              '# EMBL Biocomputing Unit - Heidelberg - Germany',
-              '# ',
-              '# Rewrite (v2.0+):',
-              '# Copyright (C) 2016 - Shyam Saladi',
-              '# California Institute of Technology - Pasadena - CA - USA',
-              '# ', sep="\n", file=sys.stderr)
-
-    if args.mode == 'default':
-        mode = 'summary'
-    elif args.mode == 'scores':
-        mode = 'scores'
     else:
-        raise ValueError("Mode unrecognized. See help.")
-
-    for record in Bio.SeqIO.parse(args.inputfile, args.inputformat):
-        record.seq = record.seq.upper()
-
-        calc_disembl(record, mode=mode, print=True,
-                     smooth_frame=args.smooth_frame,
-                     fold_coils=args.fold_coils,
-                     expect_coils=args.expect_coils,
-                     fold_rem465=args.fold_rem465,
-                     expect_rem465=args.expect_rem465,
-                     fold_hotloops=args.fold_hotloops,
-                     expect_hotloops=args.expect_hotloops,
-                     join_frame=args.join_frame,
-                     peak_frame=args.peak_frame,
-                     old_filter=args.old_filter)
-
-    return
-
-if __name__ == '__main__':
-    main()
+        raise ValueError("`mode` unrecognized: must be `scores` or `summary`")
