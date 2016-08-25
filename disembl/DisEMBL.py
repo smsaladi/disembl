@@ -134,17 +134,16 @@ def reportSlicesTXT(slices, sequence):
             s = sequence[0:slices[0][0]].lower()
         else:
             s = ''
-        for i in range(len(slices)):
+        for i, _ in enumerate(slices):
             if i > 0:
-                sys.stdout.write(', ')
-            sys.stdout.write(str(slices[i][0]+1) + '-' + str(slices[i][1]+1))
+                print(', ', end='')
+            print(str(slices[i][0]+1) + '-' + str(slices[i][1]+1), end='')
             s = s + sequence[slices[i][0]:(slices[i][1]+1)].upper()
             if i < len(slices)-1:
                 s = s + sequence[(slices[i][1]+1):(slices[i+1][0])].lower()
             elif slices[i][1] < len(sequence)-1:
                 s = s + sequence[(slices[i][1]+1):(len(sequence))].lower()
-    print('')
-    print(s)
+    print('\n', s)
 
     return
 
