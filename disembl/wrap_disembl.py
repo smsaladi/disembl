@@ -8,34 +8,24 @@ Nadine Bradbury - bradbury@caltech.edu
 """
 
 import numpy as np
-import ctypes as c
-import numpy.ctypeslib as npct
+import ctypes
 
-# find and load the disembl.so executeable file
+clib = np.ctypeslib.load_library("libdisembl.so", ".")
 
-cfile = c.cdll.LibraryLoader('libdisembl.so')
-cfile.argstype = ['c_char_p', 'array_1d_float', 'array_1d_float',
-                'array_1d_float']
+def pypredict_seq(seq):
+    # create arrays for disembl output
+    sm_arr = np.zeros(len(seq))
+    sb_arr = np.zeros_like(sm_arr)
+    sr_arr = np.zeros_like(sm_arr)
 
-def predict_seq(seq, sm, sb, sr):
-    # make a ctypes string of seq
-    cseq = c.c_char_p(seq)
+    # http://stackoverflow.com/a/37888716/2320823
+    clib.predict_seq(ctypes.c_char_p(str.encode(seq)),
+                     np.ctypeslib.as_ctypes(sm_arr),
+                     np.ctypeslib.as_ctypes(sb_arr),
+                     np.ctypeslib.as_ctypes(sr_arr))
 
-    # create the array of pointers to feed into the c function
-    sm_arr = npct.ndpointer(dtype=np.float, ndim=1, flags='CONTIGUOUS')
-    sb_arr = npct.ndpointer(dtype=np.floar, ndim=1, flags='CONTIGUOUS')
-    sr_arr = npct.ndpointer(dtype=np.float, ndim=1, flags='CONTIGUOUS')
+    return (sm_arr.tolist(), sb_arr.tolist(), sr_arr.tolist())
 
-    cfile(seq, sm_arr, sb_arr, ar_arr)
 
-    #  pointer arrays back into python lists for calc_disembl
-    sm_float = ctypes.cast(sm_arr, ctypes.POINTER(ctypes.c_float))
-    sm_list = [sm_float[i] for i in range(arrayLength)]
-
-    sb_float = ctypes.cast(sb_arr, ctypes.POINTER(ctypes.c_float))
-    sb_list = [sb_float[i] for i in range(arrayLength)]
-
-    sr_float = ctypes.cast(sr_arr, ctypes.POINTER(ctypes.c_float))
-    sr_list = [sr_float[i] for i in range(arrayLength)]
-
-    return (sm_list, sb_list, sr_list)
+if __name__ == "__main__":
+    print(pypredict_seq("MAKQPGLDFQSAKGGLGELKRRLLFVIGALIVFRIGSFIPIPGIDAAVLAKLLEQQRGTI"))

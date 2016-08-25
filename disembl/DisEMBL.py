@@ -24,10 +24,7 @@ The DisEMBL is licensed under the GNU General Public License
 """
 
 import sys
-import tempfile
-from os import system
 
-import os
 import subprocess
 import argparse
 import io
