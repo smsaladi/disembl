@@ -13,5 +13,6 @@ setup(
   intsall_requires=['numpy', 'ctypes', 'scipy', 'biopython', 'pandas'],
   ext_modules=[Extension('disembl.libdisembl',
                          sources=['disembl/libdisembl.c'])],
-  scripts=['disembl/scripts/DisEMBL.py']
+  scripts=['disembl/scripts/DisEMBL.py'],
+  zip_safe=True
 )
