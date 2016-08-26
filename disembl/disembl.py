@@ -16,7 +16,9 @@ The DisEMBL is licensed under the GNU General Public License
 (http://www.opensource.org/licenses/gpl-license.php)
 """
 
+import re
 import ctypes
+import warnings
 from pkg_resources import resource_filename
 
 from numpy.ctypeslib import load_library, ndpointer
@@ -27,6 +29,10 @@ import Bio.SeqRecord
 
 libdisembl = None
 """C library that does the heavy-lifting (loaded upon 1st use)
+"""
+
+re_remove = None
+"""Initialize regex used to remove invalid characters
 """
 
 default_params = {
@@ -65,6 +71,7 @@ def JensenNet(seq):
     ------
     None
     """
+
     if libdisembl is None:
         global libdisembl
         libdisembl = load_library("libdisembl",
@@ -76,13 +83,62 @@ def JensenNet(seq):
                                            ndpointer(dtype=np.float32)]
         libdisembl.predict_seq.restype = ctypes.c_void_p
 
+        global re_remove
+        re_remove = re.compile('[^FIVWMLCHYAGNRTPDEQSK]')
+
+    seq_len = len(seq)
+    if seq_len <= 20:
+        seq = "A" * 20 + seq + "A" * 20
+        warnings.warn("%s...%s: Padding with Ala (unverified functionality)" %
+                      (seq[:7], seq[-7:]))
+
+    # handle invalid characters
+    missing_pos = [match.span()[1]-1 for match in re_remove.finditer(seq)]
+    seq = re_remove.sub('', seq)
+
     # create arrays for disembl output
-    coils = np.zeros(len(seq), dtype=np.float32)
-    rem465 = np.zeros_like(coils)
-    hotloops = np.zeros_like(coils)
+    coils = np.empty(len(seq), dtype=np.float32)
+    rem465 = np.empty_like(coils)
+    hotloops = np.empty_like(coils)
 
     # http://stackoverflow.com/a/37888716/2320823
     libdisembl.predict_seq(str.encode(seq), rem465, hotloops, coils)
+
+    if missing_pos:
+        warnings.warn("%s...%s: Unknown residues. Interpolating." %
+                      (seq[:7], seq[-7:]))
+        # If there are multiple missing, doing this in order will keep
+        # indicies correct
+        for pos in missing_pos:
+            seq = seq[:pos] + 'X' + seq[pos:]
+            try:
+                # Average the values that are immediately surrounding
+                coils = np.insert(coils, obj=pos,
+                            values=np.mean((coils[pos-1], coils[pos])))
+                rem465 = np.insert(rem465, obj=pos,
+                            values=np.mean((rem465[pos-1], rem465[pos])))
+                hotloops = np.insert(hotloops, obj=pos,
+                            values=np.mean((hotloops[pos-1], hotloops[pos])))
+            except IndexError as err:
+                if pos == 0:
+                    coils = np.insert(coils, obj=pos, values=coils[pos])
+                    rem465 = np.insert(rem465, obj=pos, values=rem465[pos])
+                    hotloops = np.insert(hotloops, obj=pos,
+                                         values=hotloops[pos])
+                elif pos == coils.size:
+                    coils = np.append(coils, values=coils[-1])
+                    rem465 = np.append(rem465, values=rem465[-1])
+                    hotloops = np.append(hotloops, values=hotloops[-1])
+                else:
+                    print(pos, coils.size, flush=True)
+                    raise IndexError(err)
+
+    # Remove Alanine padding is performed
+    if seq_len <= 20:
+        seq = seq[20:-20]
+        coils = coils[20:-20]
+        rem465 = rem465[20:-20]
+        hotloops = hotloops[20:-20]
 
     return pd.DataFrame({'residue': list(seq),
                          'coils': coils,
@@ -299,8 +355,12 @@ def calc_disembl(sequence, mode='summary', print_output=False,
     if isinstance(sequence, Bio.SeqRecord.SeqRecord):
         seq_id = sequence.id
         sequence = str(sequence.seq)
-    else:
+    elif isinstance(sequence, str):
         seq_id = sequence[:7] + "..." + sequence[-7:]
+    elif isinstance(sequence, Bio.Seq.Seq):
+        ValueError("Pass protein sequence as Bio.SeqRecord.SeqRecord or string")
+    else:
+        ValueError("Unknown sequence type provided")
 
     preds = calc_disembl_raw(sequence, calc_coils=calc_coils,
                 calc_hotloops=calc_coils, calc_rem465=calc_coils,
