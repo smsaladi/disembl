@@ -4,7 +4,6 @@ import sys
 from itertools import islice
 import re
 import subprocess
-import unittest
 
 import numpy as np
 import pandas as pd
@@ -106,10 +105,10 @@ def test_ecolik12_formatted():
     disembl_fmt_compare("test/ecoli_k12.faa.disembl_v1.4", "test/ecoli_k12.faa")
     return
 
-def test_secy_raw(self):
+def test_secy_raw():
     raw_score_compare("test/secy.faa.disembl_v1.4.scores", "test/secy.faa")
     return
 
-def test_secy_formatted(self):
+def test_secy_formatted():
     disembl_fmt_compare("test/secy.faa.disembl_v1.4", "test/secy.faa")
     return
