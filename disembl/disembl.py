@@ -36,6 +36,7 @@ re_remove = None
 """
 
 default_params = {
+    'handle_invalid': False,
     'smooth_frame': 8,
     'peak_frame': 8,
     'join_frame': 4,
@@ -52,7 +53,7 @@ Specified here to facilitate using as default parameters both through argparse
 as well as through direct calls to calc_disembl.
 """
 
-def JensenNet(seq):
+def JensenNet(seq, handle_invalid):
     """Calculate hotloop, coil, and REM465 propensities
 
     Wraps predict_seq from libdisembl.c. Loads library upon first call.
@@ -61,6 +62,9 @@ def JensenNet(seq):
     ----------
     seq : str
         Protein sequence for which propensities will be calculated
+
+    handle_invalid : bool
+        If `True`, attempt to handle invalid residues.
 
     Returns
     -------
@@ -86,11 +90,11 @@ def JensenNet(seq):
         global re_remove
         re_remove = re.compile('[^FIVWMLCHYAGNRTPDEQSK]')
 
-    seq_len = len(seq)
-    if seq_len <= 20:
-        seq = "A" * 20 + seq + "A" * 20
-        warnings.warn("%s...%s: Padding with Ala (unverified functionality)" %
-                      (seq[:7], seq[-7:]))
+    # seq_len = len(seq)
+    if len(seq) <= 20:
+        # seq = "A" * 20 + seq + "A" * 20
+        warnings.warn(("%s...%s: Sequence shorter than Neutral network window."
+                      " Effectively padding with K") % (seq[:7], seq[-7:]))
 
     # handle invalid characters
     missing_pos = [match.span()[1]-1 for match in re_remove.finditer(seq)]
@@ -104,7 +108,7 @@ def JensenNet(seq):
     # http://stackoverflow.com/a/37888716/2320823
     libdisembl.predict_seq(str.encode(seq), rem465, hotloops, coils)
 
-    if missing_pos:
+    if missing_pos and handle_invalid:
         warnings.warn("%s...%s: Unknown residues. Interpolating." %
                       (seq[:7], seq[-7:]))
         # If there are multiple missing, doing this in order will keep
@@ -134,11 +138,11 @@ def JensenNet(seq):
                     raise IndexError(err)
 
     # Remove Alanine padding is performed
-    if seq_len <= 20:
-        seq = seq[20:-20]
-        coils = coils[20:-20]
-        rem465 = rem465[20:-20]
-        hotloops = hotloops[20:-20]
+    # if seq_len <= 20:
+    #     seq = seq[20:-20]
+    #     coils = coils[20:-20]
+    #     rem465 = rem465[20:-20]
+    #     hotloops = hotloops[20:-20]
 
     return pd.DataFrame({'residue': list(seq),
                          'coils': coils,
@@ -214,14 +218,17 @@ def reportSlicesTXT(slices, sequence):
     return
 
 
-def calc_disembl_raw(protseq, smooth_frame, calc_coils, calc_hotloops,
-                     calc_rem465, old_filter):
+def calc_disembl_raw(protseq, handle_invalid, smooth_frame, calc_coils,
+                     calc_hotloops, calc_rem465, old_filter):
     """Calculate the output of the DisEMBL neural network for a sequence
 
     Parameters
     ----------
     protseq : str
         Protein sequence for which to calculate DisEMBL scores
+
+    handle_invalid : bool
+        If `True`, attempt to handle invalid residues.
 
     smooth_frame : int,
         Number of residues forward and backward to smooth other (window size
@@ -251,7 +258,19 @@ def calc_disembl_raw(protseq, smooth_frame, calc_coils, calc_hotloops,
     None
     """
 
-    pred = JensenNet(protseq.upper())
+    pred = JensenNet(protseq.upper(), handle_invalid=handle_invalid)
+
+    # For short sequences, shorten the window
+    # For even length sequences, there is no smoothing peformed becuase
+    # the window length encompassed the entire sequence
+    # This seems arbitrary but is based on the original code/logic
+    if len(pred.index) < smooth_frame*2+1:
+        if len(pred.index) % 2 == 0:
+            return pred
+        else:
+            smooth_frame = len(pred.index) // 2
+    elif smooth_frame == 0:
+        smooth_frame = 1
 
     to_calculate = []
 
@@ -278,6 +297,7 @@ def calc_disembl_raw(protseq, smooth_frame, calc_coils, calc_hotloops,
 
 
 def calc_disembl(sequence, mode='summary', print_output=False,
+                 handle_invalid=default_params['handle_invalid'],
                  calc_coils=True, calc_hotloops=True, calc_rem465=True,
                  smooth_frame=default_params['smooth_frame'],
                  fold_coils=default_params['fold_coils'],
@@ -312,6 +332,10 @@ def calc_disembl(sequence, mode='summary', print_output=False,
         If `True`, output will be printed to stdout.  If protseq is provided
         as a `str` and mode is `summary`, the sequence name will be the first
         and last 7 characters separated by dots.
+
+    handle_invalid : Optional[bool]
+        If `True`, attempt to handle invalid residues by interpolating
+        neighbors. Passed eventually to `JensenNet`
 
     calc_XXX : Optional[bool]
         Whether to provide XXX output. Passed to `calc_disembl_raw`.
@@ -362,9 +386,10 @@ def calc_disembl(sequence, mode='summary', print_output=False,
     else:
         ValueError("Unknown sequence type provided")
 
-    preds = calc_disembl_raw(sequence, calc_coils=calc_coils,
-                calc_hotloops=calc_coils, calc_rem465=calc_coils,
-                smooth_frame=smooth_frame, old_filter=old_filter)
+    preds = calc_disembl_raw(sequence, handle_invalid=handle_invalid,
+                calc_coils=calc_coils, calc_hotloops=calc_coils,
+                calc_rem465=calc_coils, smooth_frame=smooth_frame,
+                old_filter=old_filter)
 
     if mode == 'scores':
         if print_output:
@@ -389,7 +414,7 @@ def calc_disembl(sequence, mode='summary', print_output=False,
             reportSlicesTXT(slices['rem465'], sequence)
             print('> ', seq_id, '_HOTLOOPS ', sep='', end='')
             reportSlicesTXT(slices['hotloops'], sequence)
-            print('\n', flush=True)
+            print()
 
         return slices
     else:

@@ -121,6 +121,10 @@ feed_forward(int const *s, float const w[], int nw, int nh) {
 static void
 predict(int const *s, float *sm, float *sb, float *sr) {
 
+    if (s[(MW-1)/2] == NA-1) {
+      return;
+    }
+
     *sr = feed_forward(s, r19_1, 19, 30) +
        feed_forward(s, r19_2, 19, 30) +
        feed_forward(s, r19_3, 19, 30) +
@@ -168,11 +172,12 @@ predict_seq(char const *seq, float sm_arr[], float sb_arr[], float sr_arr[]) {
     // Fill with default values
     for (i = 0; i < MW; ++i)
         s[i] = NA-1;
-
-    if ((int)strlen(seq) < (MW-1)/2) {
-        printf("Sequence must be at least %d residues long", (MW-1)/2);
-        exit(1);
-    }
+    // Sequences less than (MW-1)/2 are effectively padded with `K`
+    // This does not seem like the ideal treatment (Shyam)
+    // if ((int)strlen(seq) < (MW-1)/2) {
+    //     printf("Sequence must be at least %d residues long", (MW-1)/2);
+    //     exit(1);
+    // }
 
     for (i = 0; i < (int)strlen(seq); ++i) {
         p = strchr(alphabet, seq[i]);

@@ -84,6 +84,12 @@ def main():
                         default=disembl.default_params['expect_rem465'],
                         help='expect_rem465')
 
+    parser.add_argument('--old_invalid',
+                        action='store_true',
+                        default=not disembl.default_params['handle_invalid'],
+                        help="Don't attempt to handle invalid residues by"
+                             "interpolating neighbors.")
+
     parser.add_argument('--old_filter',
                         action='store_true',
                         help="Simply replace the first [smooth_frame] and last"
@@ -123,6 +129,7 @@ def main():
         record.seq = record.seq.upper()
 
         disembl.calc_disembl(record, mode=args.mode, print_output=True,
+                             handle_invalid=not args.old_invalid,
                              smooth_frame=args.smooth_frame,
                              fold_coils=args.fold_coils,
                              expect_coils=args.expect_coils,
