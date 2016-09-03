@@ -125,6 +125,9 @@ def main():
               '# California Institute of Technology - Pasadena - CA - USA',
               '# ', sep="\n", file=sys.stderr)
 
+    if(args.inputfile == '-'):
+        args.inputfile = sys.stdin
+
     for record in Bio.SeqIO.parse(args.inputfile, args.inputformat):
         record.seq = record.seq.upper()
 
