@@ -4,7 +4,7 @@ fork of [DisEMBL v1.4](http://dis.embl.de/)
 This fork of DisEMBL is an almost-complete rewrite of the Python code. The regions
 identified as disordered do not change.
 
-[TISEAN](www.mpipks-dresden.mpg.de/~tisean/) Savitzky–Golay filter is replaced by 
+[TISEAN](www.mpipks-dresden.mpg.de/~tisean/)'s Savitzky–Golay filter is replaced by 
 Scipy's since it ends up being faster (no stdin/stdout necessary).
 
 The original calculation will be available via '--old' but will be removed in
