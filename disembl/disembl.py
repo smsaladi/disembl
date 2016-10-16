@@ -12,8 +12,8 @@ Copyright (C) 2004 Rune Linding & Lars Juhl Jensen - EMBL
 Rewrite (2.0+) -
 Copyright (C) 2016 Nadine Bradbury & Shyam Saladi - Caltech
 
-The DisEMBL is licensed under the GNU General Public License
-(http://www.opensource.org/licenses/gpl-license.php)
+The DisEMBL is licensed under the GNU General Public License v2
+(https://opensource.org/licenses/GPL-2.0)
 """
 
 import re

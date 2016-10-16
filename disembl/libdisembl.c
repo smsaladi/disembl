@@ -10,7 +10,7 @@
 /* Modifications for v2.0+                                     */
 /* Copyright (C) 2016 Shyam Saladi - Caltech                   */
 /*                                                             */
-/* Licensed under GPL                                          */
+/* Licensed under GPLv2                                        */
 /***************************************************************/
 
 #include <stdio.h>
