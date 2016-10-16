@@ -1,0 +1,9 @@
+# Test runner/testing utils
+pytest
+# installing pandas with pip
+cython
+# calculations
+numpy
+scipy
+pandas
+biopython
