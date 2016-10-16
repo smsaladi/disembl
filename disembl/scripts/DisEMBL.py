@@ -16,6 +16,9 @@ The DisEMBL is licensed under the GNU General Public License
 (http://www.opensource.org/licenses/gpl-license.php)
 """
 
+# Python 2 and 3 compatibility
+from __future__ import print_function
+
 import sys
 import argparse
 

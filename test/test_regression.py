@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+# Python 2 and 3 compatibility
+from __future__ import print_function
+
 from itertools import islice
 import re
 import subprocess
@@ -80,24 +83,30 @@ def disembl_fmt_compare(old_output_fn, records_fn):
     while oldline[0] != '>':
         oldline = next(old_output)
 
-    with subprocess.Popen(['DisEMBL.py', records_fn, '--old_filter',
+
+    # context management for subprocess not fully supported in Python 2.7
+    # http://bugs.python.org/issue13202
+    p = subprocess.Popen(['DisEMBL.py', records_fn, '--old_filter',
                            '--old_invalid'],
                          stdin = subprocess.PIPE,
                          stdout = subprocess.PIPE,
-                         universal_newlines=True) as p:
-        data_start = False
-        for newline in p.communicate(input='')[0].split('\n'):
-            if not newline.strip() or newline[0] == '>' or data_start:
-                data_start = True
-                if newline.rstrip() != oldline.rstrip():
-                    print("ERR")
-                    print("NEW", newline)
-                    print("OLD", oldline)
-                    raise AssertionError("Printed lines do not match")
-                try:
-                    oldline = next(old_output)
-                except StopIteration:
-                    return
+                         universal_newlines=True)
+    data_start = False
+    for newline in p.communicate(input='')[0].split('\n'):
+        if not newline.strip() or newline[0] == '>' or data_start:
+            data_start = True
+            if newline.rstrip() != oldline.rstrip():
+                print("ERR")
+                print("NEW", newline)
+                print("OLD", oldline)
+                raise AssertionError("Printed lines do not match")
+            try:
+                oldline = next(old_output)
+            except StopIteration:
+                p.stdout.close()
+                return
+    p.stdout.close()
+
     return
 
 def test_ecolik12_raw():
