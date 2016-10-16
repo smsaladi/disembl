@@ -193,20 +193,3 @@ predict_seq(char const *seq, float sm_arr[], float sb_arr[], float sr_arr[]) {
 
     return;
 }
-
-
-int main(int ARGC, char *ARGV[]) {
-    // Read in single sequence line from standard input
-    char *buffer = NULL;
-    size_t len;
-    const int seq_len = getline(&buffer, &len, stdin);
-    float sm_arr[seq_len], sb_arr[seq_len], sr_arr[seq_len];
-
-    if (seq_len == -1)
-        printf("No line read...\n");
-
-    // Calculate scores
-    predict_seq(buffer, sm_arr, sb_arr, sr_arr);
-
-  return(0);
-}
