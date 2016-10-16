@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import sys
 from itertools import islice
 import re
 import subprocess
@@ -12,6 +11,8 @@ import Bio.SeqIO
 import disembl
 
 def raw_score_compare(old_output_fn, records_fn):
+    """
+    """
     records = Bio.SeqIO.parse(records_fn, 'fasta')
     old_output = open(old_output_fn, 'r+')
 
@@ -71,6 +72,8 @@ def raw_score_compare(old_output_fn, records_fn):
     return
 
 def disembl_fmt_compare(old_output_fn, records_fn):
+    """
+    """
     old_output = open(old_output_fn, 'r+')
 
     oldline = next(old_output)
