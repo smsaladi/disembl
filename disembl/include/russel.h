@@ -6,7 +6,7 @@
 /* |____/|_|___/_____|_|  |_|____/|_____| |_(_)____/    */
 /* DisEMBL is Copyright (C) 2003                        */
 /* Lars Juhl Jensen & Rune Linding - EMBL               */
-/* Licensed under GPL                                   */
+/* Licensed under GPLv2                                 */
 /********************************************************/
 
 float const r19_1[(NA*19+1)*30+(30+1)*2] = {

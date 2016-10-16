@@ -6,7 +6,7 @@
 /* |____/|_|___/_____|_|  |_|____/|_____| |_(_)____/    */
 /* DisEMBL is Copyright (C) 2003                        */
 /* Lars Juhl Jensen & Rune Linding - EMBL               */
-/* Licensed under GPL                                   */
+/* Licensed under GPLv2                                 */
 /********************************************************/
 
 float const b41_1[(NA*41+1)*5+(5+1)*2] = {
