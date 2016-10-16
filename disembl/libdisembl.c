@@ -95,14 +95,14 @@ predict(int const *s, float *sm, float *sb, float *sr) {
        feed_forward(s, r19_3, 19, 30) +
        feed_forward(s, r19_4, 19, 30) +
        feed_forward(s, r19_5, 19, 30);
-    *sr = 0.07387214+0.8020778*(*sr)/5;
+    *sr = 0.07387214f+0.8020778f*(*sr)/5;
 
     *sb = feed_forward(s, b41_1, 41, 5) +
        feed_forward(s, b41_2, 41, 5) +
        feed_forward(s, b41_3, 41, 5) +
        feed_forward(s, b41_4, 41, 5) +
        feed_forward(s, b41_5, 41, 5);
-    *sb = 0.08016882+0.6282424*(*sb)/5;
+    *sb = 0.08016882f+0.6282424f*(*sb)/5;
     *sb *= *sr;
 
     *sm = feed_forward(s, m9_1, 9, 30) +
@@ -199,12 +199,13 @@ int main(int ARGC, char *ARGV[]) {
     // Read in single sequence line from standard input
     char *buffer = NULL;
     size_t len;
-    int seq_len = getline(&buffer, &len, stdin);
+    const int seq_len = getline(&buffer, &len, stdin);
+    float sm_arr[seq_len], sb_arr[seq_len], sr_arr[seq_len];
+
     if (seq_len == -1)
         printf("No line read...\n");
 
     // Calculate scores
-    float sm_arr[seq_len], sb_arr[seq_len], sr_arr[seq_len];
     predict_seq(buffer, sm_arr, sb_arr, sr_arr);
 
   return(0);
