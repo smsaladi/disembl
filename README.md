@@ -34,7 +34,7 @@ git clone git@github.com:smsaladi/disembl.git
 * Install with `pip`
 
 ```shell
-cd ml-expression
+cd disembl
 pip install .
 ```
 
