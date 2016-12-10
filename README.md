@@ -23,6 +23,30 @@ Copyright (C) 2004 Rune Linding & Lars Juhl Jensen - EMBL
 Rewrite (v2.0+) -
 Copyright (C) 2016 Shyam Saladi & Nadine Bradbury - Caltech
 
+## Installation
+
+* Clone repo
+
+```shell
+git clone git@github.com:smsaladi/disembl.git
+```
+
+* Install with `pip`
+
+```shell
+cd ml-expression
+pip install .
+```
+
+* If you've already installed the package and want to reinstall, try
+
+```shell
+pip install . -I
+```
+
+All dependencies should be checked for and, if necessary, installed
+automatically by `pip`.
+
 ## License
 The DisEMBL is licensed under the [GNU General Public License Version 2]
 (https://opensource.org/licenses/GPL-2.0).
