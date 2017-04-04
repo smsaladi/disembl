@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/smsaladi/disembl.svg?branch=master)](https://travis-ci.org/smsaladi/disembl)
+
  ____  _     _____ __  __ ____  _        ____      ______
 |  _ \(_)___| ____|  \/  | __ )| |      /___  )   (  __  )
 | | | | / __|  _| | |\/| |  _ \| |         / /    | |  | |
@@ -50,3 +52,16 @@ automatically by `pip`.
 ## License
 The DisEMBL is licensed under the [GNU General Public License Version 2]
 (https://opensource.org/licenses/GPL-2.0).
+
+
+
+## Making releases
+
+1. Reconcile package requirements in `requirements.txt` with those listed at
+`install_requires`, `setup_requires`, and `test_requires` in `setup.py`.
+
+2. Confirm build passes all tests
+
+2. Update the version number and `download_url` in `setup.py`
+
+3. Tag a release on GitHub with the new version number
