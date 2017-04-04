@@ -14,6 +14,7 @@ setup(
   ext_modules=[Extension('disembl.libdisembl',
                          sources=['disembl/libdisembl.c'])],
   scripts=['disembl/scripts/DisEMBL.py'],
+  install_requires=['numpy', 'scipy', 'pandas', 'biopython'],
   setup_requires=['pytest-runner'],
-  tests_require=['pytest'],
+  tests_require=['pytest', 'pandas'],
 )
