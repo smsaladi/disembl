@@ -35,11 +35,12 @@ matrix:
 
 install:
   - source devtools/travis-ci-installcfg.sh
-  - pip install biopython
-  - pip install .
+  - pip install biopython codecov pytest-cov
+  - pip install -e .
 
 script:
-  - py.test -v --color=yes --exitfirst --showlocals
+  - py.test -v --color=yes --exitfirst --showlocals --cov=disembl/ test/
+  - codecov
 
 deploy:
   provider: pypi

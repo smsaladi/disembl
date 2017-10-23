@@ -1,4 +1,6 @@
 [![Build Status](https://travis-ci.org/smsaladi/disembl.svg?branch=master)](https://travis-ci.org/smsaladi/disembl)
+[![Coverage](https://img.shields.io/codecov/c/github/smsaladi/disembl/master.svg)](https://codecov.io/github/smsaladi/disembl/)
+
 
  ____  _     _____ __  __ ____  _        ____      ______
 |  _ \(_)___| ____|  \/  | __ )| |      /___  )   (  __  )
