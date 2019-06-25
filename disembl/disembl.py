@@ -30,11 +30,16 @@ import pandas as pd
 import scipy.signal
 import Bio.SeqRecord
 
-libdisembl = None
-"""C library that does the heavy-lifting (loaded upon 1st use)
+libdisembl = load_library("libdisembl", resource_filename(__name__, '.'))
+libdisembl.predict_seq.argtypes = [ctypes.c_char_p,
+        ndpointer(dtype=np.float32),
+        ndpointer(dtype=np.float32),
+        ndpointer(dtype=np.float32)]
+libdisembl.predict_seq.restype = ctypes.c_void_p
+"""C library that does the heavy-lifting
 """
 
-re_remove = None
+re_remove = re.compile('[^FIVWMLCHYAGNRTPDEQSK]')
 """Initialize regex used to remove invalid characters
 """
 
@@ -78,20 +83,6 @@ def JensenNet(seq, handle_invalid):
     ------
     None
     """
-
-    if libdisembl is None:
-        global libdisembl
-        libdisembl = load_library("libdisembl",
-                                  resource_filename(__name__, '.'))
-
-        libdisembl.predict_seq.argtypes = [ctypes.c_char_p,
-                                           ndpointer(dtype=np.float32),
-                                           ndpointer(dtype=np.float32),
-                                           ndpointer(dtype=np.float32)]
-        libdisembl.predict_seq.restype = ctypes.c_void_p
-
-        global re_remove
-        re_remove = re.compile('[^FIVWMLCHYAGNRTPDEQSK]')
 
     # seq_len = len(seq)
     if len(seq) <= 20:
